@@ -1,7 +1,10 @@
 [package]
 name = "pkix"
 version = "0.1.0"
-authors = ["Jethro Beekman <jethro@fortanix.com>"]
+authors = ["Fortanix Inc."]
+license = "MPL-2.0"
+
+repository = "https://github.com/fortanix/pkix"
 
 [dependencies]
 yasna = { version = "0.3", features = ["num-bigint", "bit-vec"] }

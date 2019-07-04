@@ -1,0 +1,15 @@
+branches:
+  only:
+    # This is where pull requests from "bors r+" are built.
+    - staging
+    # This is where pull requests from "bors try" are built.
+    - trying
+    # Not really necessary, just to get a green badge on “master”
+    - master
+language: rust
+rust:
+  - nightly
+env:
+  - RUST_BACKTRACE=1
+script:
+  - cargo test --verbose --all
