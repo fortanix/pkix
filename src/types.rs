@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::str;
 use std::fmt;
 use rustc_serialize::hex::ToHex;
+use chrono::{Utc, DateTime as ChronoDT, Datelike, Timelike, NaiveDate, NaiveTime, NaiveDateTime, TimeZone};
 
 use {DerWrite, oid};
 
@@ -250,39 +251,48 @@ impl BERDecodable for Attribute<'static> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct DateTime {
-    pub year: u16,
-    pub month: u8,
-    pub day: u8,
-    pub hour: u8,
-    pub minute: u8,
-    pub second: u8, // timezone: UTC
+pub struct DateTime(pub ChronoDT<Utc>);
+
+impl DateTime {
+    pub fn new(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> Self {
+        DateTime(ChronoDT::from_utc(NaiveDateTime::new(
+                    NaiveDate::from_ymd(year.into(), month.into(), day.into()),
+                    NaiveTime::from_hms(hour.into(), minute.into(), second.into())), Utc))
+    }
+
+    pub fn from_timestamp(ts: i64) -> Self {
+        DateTime(Utc.timestamp(ts, 0))
+    }
+
+    pub fn to_timestamp(&self) -> i64 {
+        self.0.timestamp()
+    }
 }
 
 impl DerWrite for DateTime {
     fn write(&self, writer: DERWriter) {
-        let offset = match self.year {
+        let offset = match self.0.year() {
             1950..=1999 => 1900,
             2000..=2049 => 2000,
             _ => 0,
         };
         if offset != 0 {
             let t = format!("{:02}{:02}{:02}{:02}{:02}{:02}Z",
-                            self.year - offset,
-                            self.month,
-                            self.day,
-                            self.hour,
-                            self.minute,
-                            self.second);
+                            self.0.year() - offset,
+                            self.0.month(),
+                            self.0.day(),
+                            self.0.hour(),
+                            self.0.minute(),
+                            self.0.second());
             writer.write_tagged_implicit(TAG_UTCTIME, |w| t.as_bytes().write(w));
         } else {
             let t = format!("{:04}{:02}{:02}{:02}{:02}{:02}Z",
-                            self.year,
-                            self.month,
-                            self.day,
-                            self.hour,
-                            self.minute,
-                            self.second);
+                            self.0.year(),
+                            self.0.month(),
+                            self.0.day(),
+                            self.0.hour(),
+                            self.0.minute(),
+                            self.0.second());
             writer.write_tagged_implicit(TAG_GENERALIZEDTIME, |w| t.as_bytes().write(w));
         }
     }
@@ -332,7 +342,7 @@ impl BERDecodable for DateTime {
         let minute = iter.next().ok_or(ASN1Error::new(ASN1ErrorKind::Invalid))?;
         let second = iter.next().ok_or(ASN1Error::new(ASN1ErrorKind::Invalid))?;
 
-        Ok(DateTime { year, month, day, hour, minute, second })
+        Ok(DateTime::new(year, month, day, hour, minute, second))
     }
 }
 
@@ -442,14 +452,7 @@ mod tests {
 
     #[test]
     fn datetime() {
-        let datetime = DateTime {
-            year: 2017,
-            month: 5,
-            day: 19,
-            hour: 12,
-            minute: 34,
-            second: 56,
-        };
+        let datetime = DateTime::new(2017, 5, 19, 12, 34, 56);
 
         let der = vec![0x17, 0x0d, 0x31, 0x37, 0x30, 0x35, 0x31, 0x39, 0x31, 0x32, 0x33, 0x34,
                        0x35, 0x36, 0x5a];
