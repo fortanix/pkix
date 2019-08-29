@@ -14,6 +14,7 @@ extern crate num_integer;
 pub extern crate bit_vec;
 #[macro_use]
 extern crate lazy_static;
+extern crate chrono;
 
 #[macro_use]
 pub mod derives;
