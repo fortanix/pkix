@@ -104,7 +104,7 @@ macro_rules! define_content {
             fn from(encapsulated_octets : EncapsulatedContentInfoOctets) -> ASN1Result<EncapsulatedContentInfo> {
                 match encapsulated_octets {
                     $(EncapsulatedContentInfoOctets::$variant(octets) => {
-                         <$variant as FromBer>::decode_ber(&octets)
+                         <$variant as FromBer>::from_ber(&octets)
                          .and_then(|inner_data| {
                                       Ok(EncapsulatedContentInfo::$variant(inner_data))
                                   })
