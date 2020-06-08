@@ -10,8 +10,8 @@ pub use yasna::models::{ObjectIdentifier, ParseOidError, TaggedDerValue};
 use std::borrow::Cow;
 use std::str;
 use std::fmt;
-use rustc_serialize::hex::ToHex;
 use chrono::{self, Utc, Datelike, Timelike, TimeZone};
+use std::fmt::Write;
 
 use {DerWrite, oid};
 
@@ -83,18 +83,20 @@ fn format_oid(oid: &ObjectIdentifier) -> String {
 }
 
 fn format_der(der: &TaggedDerValue) -> String {
-    if der.pcbit() == PCBit::Constructed {
-        der.value().to_hex()
-    } else {
+    if der.pcbit() != PCBit::Constructed {
         match der.tag() {
             TAG_NUMERICSTRING | TAG_PRINTABLESTRING | TAG_IA5STRING | TAG_UTF8STRING => {
-                String::from_utf8_lossy(&der.value()).to_string()
+                return String::from_utf8_lossy(&der.value()).to_string();
             }
-            _ => {
-                der.value().to_hex()
-            }
+            _ => {} // Fall through to hex print
         }
     }
+    
+    let mut s = String::new();
+    for &byte in der.value() {
+        write!(&mut s, "{:x}", byte).expect("Unable to write");
+    }
+    s
 }
 
 fn format_rdr(rdr: &(ObjectIdentifier, TaggedDerValue)) -> String {
