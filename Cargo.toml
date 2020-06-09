@@ -13,7 +13,7 @@ num-integer = { version = "0.1", default-features = false }
 bit-vec = "0.6"
 lazy_static = "1"
 chrono = "0.4"
-b64-ct = { git = "https://github.com/fortanix/b64-ct.git" }
+b64-ct = "0.1.1"
 
 [dev-dependencies]
 rand = "0.3"
