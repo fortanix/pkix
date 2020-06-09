@@ -76,26 +76,29 @@ impl Name {
 
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (p,v) in self.value.iter().enumerate() {
-            if p > 0 {
+        for (i,v) in self.value.iter().enumerate() {
+            if i > 0 {
                 write!(f, ", ")?;
             }
 
+            // print key (oid)
             if let Some(o) = oid::OID_TO_NAME.get(&v.0) {
                 write!(f, "{}", o)?;
             } else {
-                for (p1,v1) in v.0.components().iter().enumerate() {
-                    if p1 > 0 {
+                for (j,c) in v.0.components().iter().enumerate() {
+                    if j > 0 {
                         write!(f, ".")?;
                     }
-                    write!(f, "{}", v1)?;
+                    write!(f, "{}", c)?;
                 }
             }
             write!(f, "=")?;
+
+            // print value
             match (v.1.pcbit(), v.1.tag()) {
                 (PCBit::Primitive, TAG_NUMERICSTRING) | (PCBit::Primitive, TAG_PRINTABLESTRING) | (PCBit::Primitive, TAG_IA5STRING) | (PCBit::Primitive, TAG_UTF8STRING) =>
                     write!(f, "{}", String::from_utf8_lossy(&v.1.value()))?,
-                (_, _) => for &byte in v.1.value() {
+                _ => for &byte in v.1.value() {
                     write!(f, "{:x}", byte)?;
                 },
             }

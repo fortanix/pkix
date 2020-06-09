@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use b64_ct::{FromBase64, ToBase64};
-    
+
 /// Type of the various `PEM_*` constants supplied to `pem_to_der` / `der_to_pem`.
 pub struct PemGuard {
     begin: &'static str,
