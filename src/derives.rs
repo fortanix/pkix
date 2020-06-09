@@ -13,7 +13,7 @@ pub use yasna::{
 };
 
 // Provides callbacks to the main sequence's read and write functions.
-pub trait SubSequenceFromBER: Sized + Eq + Hash {
+pub trait BerDecodableSubSequence: Sized + Eq + Hash {
     fn decode_ber<'a, 'b>(reader: &mut BERReaderSeq<'a, 'b>) -> ASN1Result<Self>;
 }
 
@@ -133,7 +133,7 @@ macro_rules! impl_content_with_associated_type {
          $($tail:tt)*
     }) => {
         impl_content_with_associated_type! {
-            $name => $Ty SubSequenceDerWrite, SubSequenceFromBER, &mut BERReaderSeq {
+            $name => $Ty SubSequenceDerWrite, BerDecodableSubSequence, &mut BERReaderSeq {
                 $($tail)*
             }
         }
@@ -463,7 +463,7 @@ macro_rules! derive_sequence {
                     }
            }
         }
-        impl SubSequenceFromBER for $name {
+        impl BerDecodableSubSequence for $name {
            fn decode_ber<'a, 'b>(reader: &mut BERReaderSeq<'a, 'b>) -> ASN1Result<Self> {
                     derive_sequence! {
                         $name deriveBerRd(reader.next()) {
