@@ -9,7 +9,7 @@
 
 pub extern crate yasna;
 pub extern crate num_bigint;
-extern crate rustc_serialize;
+extern crate b64_ct;
 extern crate num_integer;
 pub extern crate bit_vec;
 #[macro_use]

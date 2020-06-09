@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use rustc_serialize::base64::{self, FromBase64, ToBase64};
+use b64_ct::{FromBase64, ToBase64};
 
 /// Type of the various `PEM_*` constants supplied to `pem_to_der` / `der_to_pem`.
 pub struct PemGuard {
@@ -32,9 +32,9 @@ pub const PEM_CMS: &'static PemGuard = pem_guard!("CMS");
 const BASE64_PEM_WRAP: usize = 64;
 
 lazy_static!{
-    static ref BASE64_PEM: base64::Config = base64::Config {
-        char_set: base64::CharacterSet::Standard,
-        newline: base64::Newline::LF,
+    static ref BASE64_PEM: b64_ct::Config = b64_ct::Config {
+        char_set: b64_ct::CharacterSet::Standard,
+        newline: b64_ct::Newline::LF,
         pad: true,
         line_length: Some(BASE64_PEM_WRAP),
     };
