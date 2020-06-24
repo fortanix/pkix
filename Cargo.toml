@@ -3,7 +3,9 @@ name = "pkix"
 version = "0.1.1"
 authors = ["Fortanix Inc."]
 license = "MPL-2.0"
-
+description = "TLS Certificate encoding and decoding helpers."
+keywords = [ "certificate-handling" ]
+categories = ["cryptography"]
 repository = "https://github.com/fortanix/pkix"
 
 [dependencies]
