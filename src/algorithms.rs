@@ -91,7 +91,7 @@ pub struct mgf1 {}
 impl DerWrite for mgf1 {
     fn write(&self, writer: DERWriter) {
         let algo = sha1 {};
-        &algo.write(writer);
+        let _ = &algo.write(writer);
     }
 }
 
@@ -159,7 +159,6 @@ derive_set_of! {
 }
 
 //RSAES_OAEP
-#[allow(non_camel_case_types)]
 define_algorithm! {
     KeyEncryptionAlgorithm => KeyEncryptionAlgorithmType {
         RSAES_OAEP = oid::RSAES_OAEP,
@@ -174,7 +173,6 @@ derive_sequence! {
     }
 }
 
-#[allow(non_camel_case_types)]
 define_algorithm! {
     SignatureAlgorithm  => SignatureAlgorithmType {
         RSASSA_PSS = oid::RSASSA_PSS,
