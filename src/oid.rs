@@ -14,7 +14,6 @@ lazy_static! {
     // PKCS #1
     pub static ref rsaEncryption: ObjectIdentifier = vec![1, 2, 840, 113549, 1, 1, 1].into();
     pub static ref sha256WithRSAEncryption: ObjectIdentifier = vec![1, 2, 840, 113549, 1, 1, 11].into();
-    pub static ref sha256WithECDSAEncryption: ObjectIdentifier = vec![1, 2, 840, 10045, 4, 3, 2].into();
 
     // X.500 attribute types
     pub static ref commonName: ObjectIdentifier = vec![2, 5, 4, 3].into();
