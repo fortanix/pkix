@@ -54,6 +54,33 @@ impl BERDecodable for RsaPkcs15<Sha256> {
     }
 }
 
+pub struct EcdsaX962<H>(pub H);
+
+impl<H> SignatureAlgorithm for EcdsaX962<H> {}
+
+/// ecdsaWithSHA256
+impl DerWrite for EcdsaX962<Sha256> {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|writer| {
+            writer.next().write_oid(&oid::ecdsaWithSHA256);
+        })
+    }
+}
+
+impl BERDecodable for EcdsaX962<Sha256> {
+    fn decode_ber<'a, 'b>(reader: BERReader<'a, 'b>) -> ASN1Result<Self> {
+        reader.read_sequence(|seq_reader| {
+            let oid = ObjectIdentifier::decode_ber(seq_reader.next())?;
+            if oid == *oid::ecdsaWithSHA256 {
+                Ok(EcdsaX962(Sha256))
+            } else {
+                Err(ASN1Error::new(ASN1ErrorKind::Invalid))
+            }
+        })
+    }
+}
+
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Name {
     // The actual ASN.1 type is Vec<HashSet<(ObjectIdentifier, TaggedDerValue)>>.

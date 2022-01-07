@@ -40,6 +40,7 @@ lazy_static! {
     pub static ref NistP256: ObjectIdentifier = vec![1, 2, 840, 10045, 3, 1, 7].into();
     pub static ref NistP384: ObjectIdentifier = vec![1, 3, 132, 0, 34].into();
     pub static ref NistP521: ObjectIdentifier = vec![1, 3, 132, 0, 35].into();
+    pub static ref ecdsaWithSHA256: ObjectIdentifier = vec![1, 2, 840, 10045, 4, 3, 2].into();
 
     // GOST elliptic curves: RFC4357
     pub static ref Gost256A: ObjectIdentifier = vec![1, 2, 643, 2, 2, 35, 1].into();
