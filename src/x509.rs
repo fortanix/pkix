@@ -214,7 +214,7 @@ impl GeneralName {
 
     fn get_all_general_names(reader: BERReader) -> ASN1Result<GeneralNames> {
         let mut names = Vec::<GeneralName>::new();
-        reader.read_sequence_of(|seq_reader| {
+        let result = reader.read_sequence_of(|seq_reader| {
             let tag_number = seq_reader.lookahead_tag()?.tag_number;
             let name = match tag_number {
                 0 => {
@@ -231,8 +231,12 @@ impl GeneralName {
             };
             names.push(name);
             Ok(())
-        })?;
-        Ok(GeneralNames { names })
+        });
+
+        match result {
+            Err(e) if e.kind() != ASN1ErrorKind::Eof => Err(e),
+            _ => Ok(GeneralNames { names })
+        }
     }
 }
 
