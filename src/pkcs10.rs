@@ -48,9 +48,7 @@ impl<I: BERDecodable, A: SignatureAlgorithm + BERDecodable, S: BERDecodable> BER
 }
 
 impl<'a, K, A: SignatureAlgorithm, S> CertificationRequest<CertificationRequestInfo<'a, K>, A, S> {
-    pub fn get_attribute<T: FromDer + HasOid>(&self) -> Option<Vec<T>> {
-        let oid = T::oid();
-
+    pub fn get_attribute_raw<T: FromDer>(&self, oid: &ObjectIdentifier) -> Option<Vec<T>> {
         let mut iter = self.reqinfo.attributes.iter().filter(|a| a.oid == *oid);
 
         // We reject CSRs where the same attribute (same OID) appears multiple times. Note that
@@ -68,8 +66,8 @@ impl<'a, K, A: SignatureAlgorithm, S> CertificationRequest<CertificationRequestI
         }
     }
 
-    pub fn get_singular_attribute<T: FromDer + HasOid>(&self) -> Option<T> {
-        match self.get_attribute() {
+    pub fn get_singular_attribute_raw<T: FromDer>(&self, oid: &ObjectIdentifier) -> Option<T> {
+        match self.get_attribute_raw(oid) {
             None => None,
             Some(mut values) => {
                 if values.len() != 1 {
@@ -80,6 +78,14 @@ impl<'a, K, A: SignatureAlgorithm, S> CertificationRequest<CertificationRequestI
                 }
             }
         }
+    }
+
+    pub fn get_attribute<T: FromDer + HasOid>(&self) -> Option<Vec<T>> {
+        self.get_attribute_raw::<T>(T::oid())
+    }
+
+    pub fn get_singular_attribute<T: FromDer + HasOid>(&self) -> Option<T> {
+        self.get_singular_attribute_raw::<T>(T::oid())
     }
 }
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
