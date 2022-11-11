@@ -48,6 +48,10 @@ impl<I: BERDecodable, A: SignatureAlgorithm + BERDecodable, S: BERDecodable> BER
 }
 
 impl<'a, K, A: SignatureAlgorithm, S> CertificationRequest<CertificationRequestInfo<'a, K>, A, S> {
+    pub fn has_attribute(&self, oid: &ObjectIdentifier) -> bool {
+        self.reqinfo.attributes.iter().any(|a| a.oid == *oid)
+    }
+
     pub fn get_attribute_raw<T: FromDer>(&self, oid: &ObjectIdentifier) -> Option<Vec<T>> {
         let mut iter = self.reqinfo.attributes.iter().filter(|a| a.oid == *oid);
 
