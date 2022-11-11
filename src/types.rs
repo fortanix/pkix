@@ -7,6 +7,7 @@
 use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERReader, DERWriter, BERDecodable, PCBit};
 use yasna::tags::*;
 pub use yasna::models::{ObjectIdentifier, ParseOidError, TaggedDerValue};
+pub use yasna::tags::TAG_UTF8STRING;
 use std::borrow::Cow;
 use std::str;
 use std::fmt;

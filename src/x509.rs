@@ -4,11 +4,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERReader, DERWriter, BERDecodable, Tag};
 use num_integer::Integer;
-use num_bigint::BigUint;
+pub use num_bigint::BigUint;
 use std::borrow::Cow;
 use bit_vec::BitVec;
+use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERReader, DERWriter, BERDecodable, Tag};
 use oid;
 use FromDer;
 

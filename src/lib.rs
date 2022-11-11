@@ -31,4 +31,4 @@ mod deserialize;
 pub use serialize::{DerWrite, ToDer};
 pub use deserialize::{FromDer, FromBer};
 
-pub use yasna::{ASN1Error, ASN1Result};
+pub use yasna::{ASN1Error, ASN1Result, construct_der};
