@@ -53,6 +53,12 @@ lazy_static! {
     pub static ref Gost256B: ObjectIdentifier = vec![1, 2, 643, 2, 2, 35, 2].into();
     pub static ref Gost256C: ObjectIdentifier = vec![1, 2, 643, 2, 2, 35, 3].into();
 
+    // X25519 identifiers: RFC 8410
+    pub static ref Curve25519: ObjectIdentifier = vec![1, 3, 101, 110].into();
+    pub static ref Curve448: ObjectIdentifier = vec![1, 3, 101, 111].into();
+    pub static ref Ed25519: ObjectIdentifier = vec![1, 3, 101, 112].into();
+    pub static ref Ed448: ObjectIdentifier = vec![1, 3, 101, 113].into();
+
     // CMS: RFC5652
     // named as id-ct-contentInfo in the standard.
     pub static ref ctContentInfo : ObjectIdentifier = vec![1, 2, 840, 113549, 1, 9, 16, 1, 6].into();
@@ -191,10 +197,12 @@ lazy_static! {
             [1, 3, 6, 1, 5, 5, 7, 3, 8] => keyUsageTimeStamping,
             [1, 3, 6, 1, 5, 5, 7, 3, 9] => keyUsageOCSPSigning,
 
+            [1, 2, 840, 113549, 1, 1, 5] => sha1withRSA,
             [1, 2, 840, 113549, 1, 1, 14] => sha224withRSA,
             [1, 2, 840, 113549, 1, 1, 11] => sha256withRSA,
             [1, 2, 840, 113549, 1, 1, 12] => sha384withRSA,
             [1, 2, 840, 113549, 1, 1, 13] => sha512withRSA,
+            [1, 2, 840, 10045, 4, 1] => sha1withECDSA,
             [1, 2, 840, 10045, 4, 3, 1] => sha224withECDSA,
             [1, 2, 840, 10045, 4, 3, 2] => sha256withECDSA,
             [1, 2, 840, 10045, 4, 3, 3] => sha384withECDSA,
