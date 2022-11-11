@@ -53,7 +53,7 @@ impl<T: BERDecodable, A: SignatureAlgorithm + BERDecodable, S: BERDecodable> BER
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct TbsCertificate<S: Integer, A: SignatureAlgorithm, K> {
-    // version: v3
+    pub version: u8,
     pub serial: S,
     pub sigalg: A,
     pub issuer: Name,
@@ -109,8 +109,8 @@ impl<S: DerWrite + Integer, A: DerWrite + SignatureAlgorithm, K: DerWrite> DerWr
 impl<S: BERDecodable + Integer, A: BERDecodable + SignatureAlgorithm, K: BERDecodable> BERDecodable for TbsCertificate<S, A, K> {
     fn decode_ber<'a, 'b>(reader: BERReader<'a, 'b>) -> ASN1Result<Self> {
         reader.read_sequence(|r| {
-            let version = r.next().read_tagged(Tag::context(0), |r| r.read_u8())?;
-            if version != TBS_CERTIFICATE_V3 {
+            let version = r.read_optional(|r| r.read_tagged(Tag::context(0), |r| r.read_u8()))?.unwrap_or(0);
+            if version != 0 && version != 1 && version != 2 {
                 return Err(ASN1Error::new(ASN1ErrorKind::Invalid));
             }
             let serial = S::decode_ber(r.next())?;
@@ -124,6 +124,9 @@ impl<S: BERDecodable + Integer, A: BERDecodable + SignatureAlgorithm, K: BERDeco
             let subject = Name::decode_ber(r.next())?;
             let spki = K::decode_ber(r.next())?;
             let extensions = r.read_optional(|r| {
+                if version != 2 {
+                    return Err(ASN1Error::new(ASN1ErrorKind::Invalid));
+                }
                 r.read_tagged(Tag::context(3), |r| {
                     r.read_sequence(|r| {
                         let mut extensions = Vec::<Extension>::new();
@@ -144,7 +147,7 @@ impl<S: BERDecodable + Integer, A: BERDecodable + SignatureAlgorithm, K: BERDeco
                 })
             })?.unwrap_or(vec![]);
 
-            Ok(TbsCertificate { serial, sigalg, issuer, validity_notbefore, validity_notafter,
+            Ok(TbsCertificate { version, serial, sigalg, issuer, validity_notbefore, validity_notafter,
                                 subject, spki, extensions })
         })
     }
@@ -648,6 +651,20 @@ mod tests {
     use yasna;
     use yasna::{tags::{TAG_PRINTABLESTRING, TAG_UTF8STRING}};
     use std::str::FromStr;
+
+    #[test]
+    fn parse_v1_cert() {
+        let der = include_bytes!("../tests/data/v1_cert.der");
+        let cert = yasna::parse_der(der, |r| GenericCertificate::decode_ber(r)).unwrap();
+        assert_eq!(cert.tbscert.version, 0);
+    }
+
+    #[test]
+    fn parse_v3_cert() {
+        let der = include_bytes!("../tests/data/v3_cert.der");
+        let cert = yasna::parse_der(der, |r| GenericCertificate::decode_ber(r)).unwrap();
+        assert_eq!(cert.tbscert.version, 2);
+    }
 
     #[test]
     fn dns_alt_names() {

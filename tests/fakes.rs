@@ -110,6 +110,7 @@ pub fn cert(get_random_printable_string: fn(usize) -> Vec<u8>)
 
     Certificate {
             tbscert: TbsCertificate {
+                version: 2,
                 serial: 0,
                 sigalg: RsaPkcs15(Sha256),
                 issuer:
