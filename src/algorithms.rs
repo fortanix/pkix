@@ -91,7 +91,7 @@ pub struct mgf1 {}
 impl DerWrite for mgf1 {
     fn write(&self, writer: DERWriter) {
         let algo = sha1 {};
-        let _ = &algo.write(writer);
+        algo.write(writer);
     }
 }
 
