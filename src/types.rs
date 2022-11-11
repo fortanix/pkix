@@ -217,6 +217,12 @@ pub struct Extension {
     pub critical: bool,
     pub value: Vec<u8>,
 }
+impl From<Extension> for (ObjectIdentifier, bool, Vec<u8>) {
+    fn from(e: Extension) -> (ObjectIdentifier, bool, Vec<u8>) {
+        let Extension { oid, critical, value } = e;
+        (oid, critical, value)
+    }
+}
 
 impl DerWrite for Extension {
     fn write(&self, writer: DERWriter) {
