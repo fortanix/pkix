@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![deny(warnings)]
-#![recursion_limit="128"]
+#![recursion_limit="256"]
 
 pub extern crate yasna;
 pub extern crate num_bigint;
