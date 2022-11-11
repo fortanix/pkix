@@ -150,20 +150,26 @@ impl<S: BERDecodable + Integer, A: BERDecodable + SignatureAlgorithm, K: BERDeco
     }
 }
 
-enum GeneralName {
-    OtherName(TaggedDerValue),
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum GeneralName {
+    // https://tools.ietf.org/html/rfc5280#section-4.2.1.6
+    OtherName(ObjectIdentifier, TaggedDerValue),
     Rfc822Name(String),
     DnsName(String),
     DirectoryName(Name),
     UniformResourceIdentifier(String),
     IpAddress(Vec<u8>),
-    RegisteredID(ObjectIdentifier)
+    RegisteredID(ObjectIdentifier),
 }
 
 impl GeneralName {
-    fn get_tagged_der_value(reader: BERReader, tag_number: u64) -> ASN1Result<TaggedDerValue> {
+    fn get_other(reader: BERReader, tag_number: u64) -> ASN1Result<(ObjectIdentifier, TaggedDerValue)> {
         reader.read_tagged_implicit(Tag::context(tag_number), |r| {
-            TaggedDerValue::decode_ber(r)
+            r.read_sequence(|r| {
+                let oid = ObjectIdentifier::decode_ber(r.next())?;
+                let value = r.next().read_tagged(Tag::context(0), |r| TaggedDerValue::decode_ber(r))?;
+                Ok((oid, value))
+            })
         })
     }
 
@@ -206,12 +212,15 @@ impl GeneralName {
         Ok(Name::from(vals))
     }
 
-    fn get_all_sans(reader: BERReader) -> ASN1Result<Vec<Self>> {
-        let mut sans = Vec::<GeneralName>::new();
+    fn get_all_general_names(reader: BERReader) -> ASN1Result<GeneralNames> {
+        let mut names = Vec::<GeneralName>::new();
         reader.read_sequence_of(|seq_reader| {
             let tag_number = seq_reader.lookahead_tag()?.tag_number;
-            let san = match tag_number {
-                0 => GeneralName::OtherName(Self::get_tagged_der_value(seq_reader, tag_number)?),
+            let name = match tag_number {
+                0 => {
+                    let (oid, tdv) = Self::get_other(seq_reader, tag_number)?;
+                    GeneralName::OtherName(oid, tdv)
+                },
                 1 => GeneralName::Rfc822Name(Self::get_string(seq_reader, tag_number)?),
                 2 => GeneralName::DnsName(Self::get_string(seq_reader, tag_number)?),
                 4 => GeneralName::DirectoryName(Self::get_name(seq_reader, tag_number)?),
@@ -220,10 +229,130 @@ impl GeneralName {
                 8 => GeneralName::RegisteredID(Self::get_oid(seq_reader, tag_number)?),
                 _ => return Err(ASN1Error::new(ASN1ErrorKind::Invalid)),
             };
-            sans.push(san);
+            names.push(name);
             Ok(())
         })?;
-        Ok(sans)
+        Ok(GeneralNames { names })
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+pub struct GeneralNames {
+    pub names: Vec<GeneralName>,
+}
+
+impl<'a> HasOid for GeneralNames {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::subjectAltName
+    }
+}
+
+impl<'a> DerWrite for GeneralNames {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|writer| {
+            for name in &self.names {
+                match name {
+                    GeneralName::OtherName(oid, tdv) =>
+                        writer.next().write_tagged_implicit(Tag::context(0), |w| w.write_sequence(|ws| {
+                            oid.write(ws.next());
+                            ws.next().write_tagged(Tag::context(0), |w| tdv.write(w));
+                        })),
+                    GeneralName::Rfc822Name(s) =>
+                        writer.next().write_tagged_implicit(Tag::context(1), |w| s.as_bytes().write(w)),
+                    GeneralName::DnsName(s) =>
+                        writer.next().write_tagged_implicit(Tag::context(2), |w| s.as_bytes().write(w)),
+                    GeneralName::DirectoryName(n) =>
+                        writer.next().write_tagged_implicit(Tag::context(4), |w| w.write_sequence(|ws| n.write(ws.next()))),
+                    GeneralName::UniformResourceIdentifier(s) =>
+                        writer.next().write_tagged_implicit(Tag::context(6), |w| s.as_bytes().write(w)),
+                    GeneralName::IpAddress(a) =>
+                        writer.next().write_tagged_implicit(Tag::context(7), |w| a.write(w)),
+                    GeneralName::RegisteredID(oid) =>
+                        writer.next().write_tagged_implicit(Tag::context(8), |w| oid.write(w)),
+                }
+            }
+        });
+    }
+}
+
+impl BERDecodable for GeneralNames {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        Ok(GeneralName::get_all_general_names(reader)?)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct OtherNameAltNames {
+    pub names: Vec<(ObjectIdentifier, TaggedDerValue)>,
+}
+
+impl<'a> HasOid for OtherNameAltNames {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::subjectAltName
+    }
+}
+
+impl<'a> DerWrite for OtherNameAltNames {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|writer| {
+            for (oid, tdv) in &self.names {
+                writer.next().write_tagged_implicit(Tag::context(0), |w|
+                    w.write_sequence(|ws| {
+                        oid.write(ws.next());
+                        ws.next().write_tagged(Tag::context(0), |w| tdv.write(w));
+                    }),
+                )
+            }
+        });
+    }
+}
+
+impl BERDecodable for OtherNameAltNames {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        let names = GeneralName::get_all_general_names(reader)?
+            .names
+            .into_iter()
+            .filter_map(|s| match s {
+                GeneralName::OtherName(oid, tdv) => Some((oid, tdv)),
+                _ => None,
+            }).collect();
+        Ok(OtherNameAltNames { names })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Rfc822NameAltNames<'a> {
+    pub names: Vec<Cow<'a, str>>,
+}
+
+impl<'a> HasOid for Rfc822NameAltNames<'a> {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::subjectAltName
+    }
+}
+
+impl<'a> DerWrite for Rfc822NameAltNames<'a> {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|writer| {
+            for name in &self.names {
+                writer.next().write_tagged_implicit(Tag::context(1), |w|
+                    name.as_bytes().write(w),
+                )
+            }
+        });
+    }
+}
+
+impl BERDecodable for Rfc822NameAltNames<'static> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        let names = GeneralName::get_all_general_names(reader)?
+            .names
+            .into_iter()
+            .filter_map(|s| match s {
+                GeneralName::Rfc822Name(name) => Some(Cow::Owned(name)),
+                _ => None,
+            }).collect();
+        Ok(Rfc822NameAltNames { names })
     }
 }
 
@@ -252,12 +381,86 @@ impl<'a> DerWrite for DnsAltNames<'a> {
 
 impl BERDecodable for DnsAltNames<'static> {
     fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        let sans = GeneralName::get_all_sans(reader)?;
-        let names = sans.into_iter().filter_map(|s| match  s {
-            GeneralName::DnsName(name) => Some(Cow::Owned(name)),
-            _ => None,
-        }).collect();
+        let names = GeneralName::get_all_general_names(reader)?
+            .names
+            .into_iter()
+            .filter_map(|s| match s {
+                GeneralName::DnsName(name) => Some(Cow::Owned(name)),
+                _ => None,
+            }).collect();
         Ok(DnsAltNames { names })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct DirectoryAltNames {
+    pub names: Vec<Name>,
+}
+
+impl<'a> HasOid for DirectoryAltNames {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::subjectAltName
+    }
+}
+
+impl<'a> DerWrite for DirectoryAltNames {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|writer| {
+            for name in &self.names {
+                writer.next().write_tagged_implicit(Tag::context(4), |w|
+                    w.write_sequence(|ws| name.write(ws.next())),
+                )
+            }
+        });
+    }
+}
+
+impl BERDecodable for DirectoryAltNames {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        let names = GeneralName::get_all_general_names(reader)?
+            .names
+            .into_iter()
+            .filter_map(|s| match s {
+                GeneralName::DirectoryName(name) => Some(name),
+                _ => None,
+            }).collect();
+        Ok(DirectoryAltNames { names })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct URIAltNames<'a> {
+    pub names: Vec<Cow<'a, str>>,
+}
+
+impl<'a> HasOid for URIAltNames<'a> {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::subjectAltName
+    }
+}
+
+impl<'a> DerWrite for URIAltNames<'a> {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|writer| {
+            for name in &self.names {
+                writer.next().write_tagged_implicit(Tag::context(6), |w|
+                    name.as_bytes().write(w),
+                )
+            }
+        });
+    }
+}
+
+impl BERDecodable for URIAltNames<'static> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        let names = GeneralName::get_all_general_names(reader)?
+            .names
+            .into_iter()
+            .filter_map(|s| match s {
+                GeneralName::UniformResourceIdentifier(name) => Some(Cow::Owned(name)),
+                _ => None,
+            }).collect();
+        Ok(URIAltNames { names })
     }
 }
 
@@ -286,31 +489,33 @@ impl<'a> DerWrite for IpAddressAltNames {
 
 impl BERDecodable for IpAddressAltNames {
     fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        let sans = GeneralName::get_all_sans(reader)?;
-        let addresses = sans.into_iter().filter_map(|s| match  s {
-            GeneralName::IpAddress(ip) => Some(ip),
-            _ => None,
-        }).collect();
+        let addresses = GeneralName::get_all_general_names(reader)?
+            .names
+            .into_iter()
+            .filter_map(|s| match s {
+                GeneralName::IpAddress(ip) => Some(ip),
+                _ => None,
+            }).collect();
         Ok(IpAddressAltNames { addresses })
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct DirectoryAltNames {
-    pub names: Vec<Name>,
+pub struct RIDAltNames {
+    pub names: Vec<ObjectIdentifier>,
 }
 
-impl<'a> HasOid for DirectoryAltNames {
+impl<'a> HasOid for RIDAltNames {
     fn oid() -> &'static ObjectIdentifier {
         &oid::subjectAltName
     }
 }
 
-impl<'a> DerWrite for DirectoryAltNames {
+impl<'a> DerWrite for RIDAltNames {
     fn write(&self, writer: DERWriter) {
         writer.write_sequence(|writer| {
             for name in &self.names {
-                writer.next().write_tagged_implicit(Tag::context(4), |w|
+                writer.next().write_tagged_implicit(Tag::context(8), |w|
                     name.write(w),
                 )
             }
@@ -318,14 +523,16 @@ impl<'a> DerWrite for DirectoryAltNames {
     }
 }
 
-impl BERDecodable for DirectoryAltNames {
+impl BERDecodable for RIDAltNames {
     fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        let sans = GeneralName::get_all_sans(reader)?;
-        let names = sans.into_iter().filter_map(|s| match  s {
-            GeneralName::DirectoryName(name) => Some(name),
-            _ => None,
-        }).collect();
-        Ok(DirectoryAltNames { names })
+        let names = GeneralName::get_all_general_names(reader)?
+            .names
+            .into_iter()
+            .filter_map(|s| match s {
+                GeneralName::RegisteredID(oid) => Some(oid),
+                _ => None,
+            }).collect();
+        Ok(RIDAltNames { names })
     }
 }
 
@@ -433,11 +640,13 @@ impl BERDecodable for DirectoryName {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serialize::DerWrite;
+    use serialize::{DerWrite, ToDer};
     use yasna;
+    use yasna::{tags::{TAG_PRINTABLESTRING, TAG_UTF8STRING}};
+    use std::str::FromStr;
 
     #[test]
-    fn alt_names() {
+    fn dns_alt_names() {
         let names = DnsAltNames {
             names: vec![
                 Cow::Borrowed("www.example.com"),
@@ -511,16 +720,63 @@ mod tests {
             0x03, 0x04, 0x88, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01,
             0x01, 0x0d
         ];
-        let names = DnsAltNames {
+
+        assert_eq!(der, &yasna::parse_der(der, |r| GeneralNames::decode_ber(r)).unwrap().to_der()[..]);
+
+        let other_names = OtherNameAltNames {
+            names: vec![
+                (ObjectIdentifier::from_str("1.2.3.4").unwrap(), TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"some other identifier".to_vec())),
+                (ObjectIdentifier::from_str("1.3.6.1.5.5.7.8.9").unwrap(), TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"nonasciiname.example.com".to_vec())),
+            ]
+        };
+        assert_eq!(yasna::parse_der(der, |r| OtherNameAltNames::decode_ber(r)).unwrap(), other_names);
+
+        let rfc822_names = Rfc822NameAltNames {
+            names: vec![
+                Cow::Borrowed("savvas@fortanix.com"),
+                Cow::Borrowed("help@fortanix.com"),
+            ]
+        };
+        assert_eq!(yasna::parse_der(der, |r| Rfc822NameAltNames::decode_ber(r)).unwrap(), rfc822_names);
+
+        let dns_names = DnsAltNames {
             names: vec![
                 Cow::Borrowed("www.example.com"),
                 Cow::Borrowed("example.com"),
                 Cow::Borrowed("ftp.example.com"),
             ]
         };
-        assert_eq!(yasna::parse_der(der, |r| DnsAltNames::decode_ber(r)).unwrap(), names);
+        assert_eq!(yasna::parse_der(der, |r| DnsAltNames::decode_ber(r)).unwrap(), dns_names);
 
-        let addresses = IpAddressAltNames {
+        let dir_names = DirectoryAltNames {
+            names: vec![
+                Name::from(vec![
+                    (ObjectIdentifier::from_str("2.5.4.3").unwrap(), TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"Fortanix Inc".to_vec())),
+                    (ObjectIdentifier::from_str("2.5.4.6").unwrap(), TaggedDerValue::from_tag_and_bytes(TAG_PRINTABLESTRING, b"US".to_vec())),
+                    (ObjectIdentifier::from_str("2.5.4.10").unwrap(), TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"Fortanix".to_vec())),
+                ]),
+                Name::from(vec![
+                    (ObjectIdentifier::from_str("2.5.4.6").unwrap(), TaggedDerValue::from_tag_and_bytes(TAG_PRINTABLESTRING, b"UK".to_vec())),
+                    (ObjectIdentifier::from_str("2.5.4.10").unwrap(), TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"My Organization".to_vec())),
+                    (ObjectIdentifier::from_str("2.5.4.11").unwrap(), TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"My Unit".to_vec())),
+                    (ObjectIdentifier::from_str("2.5.4.3").unwrap(), TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"My Name".to_vec())),
+                ]),
+            ]
+        };
+        assert_eq!(yasna::parse_der(der, |r| DirectoryAltNames::decode_ber(r)).unwrap(), dir_names);
+
+        let uri_names = URIAltNames {
+            names: vec![
+                // fragment removed: https://www.example.com:123/forum/questions/?tag=networking&order=newest#top
+                Cow::Borrowed("https://www.example.com:123/forum/questions/?tag=networking&order=newest"),
+                Cow::Borrowed("ldap://[2001:db8::7]/c=GB?objectClass?one"),
+                Cow::Borrowed("mailto:John.Doe@example.com"),
+                Cow::Borrowed("telnet://192.0.2.16:80/"),
+            ]
+        };
+        assert_eq!(yasna::parse_der(der, |r| URIAltNames::decode_ber(r)).unwrap(), uri_names);
+
+        let ip_addresses = IpAddressAltNames {
             addresses: vec![
                 vec![127, 0, 0, 1],
                 vec![1, 2, 3, 4],
@@ -531,6 +787,15 @@ mod tests {
                 vec![136, 136, 153, 153, 170, 170, 187, 187, 204, 204, 221, 221, 238, 238, 255, 255],
             ]
         };
-        assert_eq!(yasna::parse_der(der, |r| IpAddressAltNames::decode_ber(r)).unwrap(), addresses);
+        assert_eq!(yasna::parse_der(der, |r| IpAddressAltNames::decode_ber(r)).unwrap(), ip_addresses);
+
+        let rid_names = RIDAltNames {
+            names: vec![
+                ObjectIdentifier::from_str("1.1.1.1").unwrap(),
+                ObjectIdentifier::from_str("1.2.3.4").unwrap(),
+                ObjectIdentifier::from_str("1.2.840.113549.1.1.13").unwrap(),
+            ]
+        };
+        assert_eq!(yasna::parse_der(der, |r| RIDAltNames::decode_ber(r)).unwrap(), rid_names);
     }
 }
