@@ -211,6 +211,18 @@ impl From<Vec<u8>> for NameComponent {
     }
 }
 
+impl Into<TaggedDerValue> for NameComponent {
+    fn into(self) -> TaggedDerValue {
+        match self {
+            NameComponent::Str(str) => TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, str.into_bytes()),
+            NameComponent::Bytes(mut val) => {
+                val.insert(0, 0);
+                TaggedDerValue::from_tag_and_bytes(TAG_BITSTRING, val)
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Extension {
     pub oid: ObjectIdentifier,

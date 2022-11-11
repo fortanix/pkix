@@ -189,15 +189,34 @@ impl BERDecodable for DnsAltNames<'static> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct IssuerAltName {
+    pub names: Vec<DirectoryName>
+}
+
+impl DerWrite for IssuerAltName {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|w| {
+            for dir_name in &self.names {
+                dir_name.write(w.next())
+            }
+        })
+    }
+}
+
+impl BERDecodable for IssuerAltName {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        Ok(Self { names: reader.collect_sequence_of(|r| DirectoryName::decode_ber(r))? })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DirectoryName {
     pub name: Name,
 }
 
 impl DerWrite for DirectoryName {
     fn write(&self, writer: DERWriter) {
-        writer.write_sequence(|writer| {
-            writer.next().write_tagged(Tag::context(4), |w| self.name.write(w));
-        });
+        writer.write_tagged(Tag::context(4), |w| self.name.write(w))
     }
 }
 
