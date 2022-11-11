@@ -11,7 +11,8 @@ pub use yasna::tags::TAG_UTF8STRING;
 use std::borrow::Cow;
 use std::str;
 use std::fmt;
-use chrono::{self, Utc, Datelike, Timelike, TimeZone};
+use chrono::{Utc, Datelike, Timelike, NaiveDate, NaiveTime, NaiveDateTime, TimeZone};
+use chrono;
 use hex::ToHex;
 
 use {DerWrite, oid};
@@ -325,21 +326,11 @@ impl BERDecodable for Attribute<'static> {
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DateTime(chrono::DateTime<Utc>);
 
-impl From<chrono::DateTime<Utc>> for DateTime {
-    fn from(datetime: chrono::DateTime<Utc>) -> Self {
-        DateTime(datetime)
-    }
-}
-
-impl Into<chrono::DateTime<Utc>> for DateTime {
-    fn into(self) -> chrono::DateTime<Utc> {
-        self.0
-    }
-}
-
 impl DateTime {
     pub fn new(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> Self {
-        DateTime(Utc.ymd(year.into(), month.into(), day.into()).and_hms(hour.into(), minute.into(), second.into()))
+        DateTime(chrono::DateTime::from_utc(NaiveDateTime::new(
+                 NaiveDate::from_ymd(year.into(), month.into(), day.into()),
+                 NaiveTime::from_hms(hour.into(), minute.into(), second.into())), Utc))
     }
 
     pub fn from_seconds_since_epoch(seconds: i64) -> Self {
@@ -348,6 +339,18 @@ impl DateTime {
 
     pub fn to_seconds_since_epoch(&self) -> i64 {
         self.0.timestamp()
+    }
+}
+
+impl From<chrono::DateTime<Utc>> for DateTime {
+    fn from(item: chrono::DateTime<Utc>) -> Self {
+        DateTime(item)
+    }
+}
+
+impl Into<chrono::DateTime<Utc>> for DateTime {
+    fn into(self) -> chrono::DateTime<Utc> {
+        self.0
     }
 }
 
