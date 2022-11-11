@@ -9,6 +9,8 @@ use num_integer::Integer;
 use num_bigint::BigUint;
 use std::borrow::Cow;
 use bit_vec::BitVec;
+use oid;
+use FromDer;
 
 use DerWrite;
 use types::*;
@@ -153,6 +155,12 @@ pub struct DnsAltNames<'a> {
     pub names: Vec<Cow<'a, str>>,
 }
 
+impl<'a> HasOid for DnsAltNames<'a> {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::subjectAltName
+    }
+}
+
 impl<'a> DerWrite for DnsAltNames<'a> {
     fn write(&self, writer: DERWriter) {
         writer.write_sequence(|writer| {
@@ -185,6 +193,66 @@ impl BERDecodable for DnsAltNames<'static> {
 
             Ok(DnsAltNames { names })
         })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct RequestedExtensions {
+    pub extensions: Vec<Extension>,
+}
+
+impl HasOid for RequestedExtensions {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::extensionRequest
+    }
+}
+
+impl DerWrite for RequestedExtensions {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|w| {
+            for i in &self.extensions {
+                i.write(w.next())
+            }
+        })
+    }
+}
+
+impl BERDecodable for RequestedExtensions {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        reader.read_sequence(|r| {
+            let mut extensions = Vec::<Extension>::new();
+            
+            loop {
+                let res = r.read_optional(|r| {
+                    Extension::decode_ber(r)
+                });
+                match res {
+                    Ok(Some(ext)) => extensions.push(ext),
+                    Ok(None) => break,
+                    Err(e) => return Err(e),
+                }
+            }
+            
+            Ok(RequestedExtensions { extensions })
+        })
+    }
+}
+
+impl RequestedExtensions {
+    pub fn get_singular_attribute<T: FromDer + HasOid>(&self) -> Option<T> {
+        let oid = T::oid();
+
+        let mut iter = self.extensions.iter().filter(|a| a.oid == *oid);
+
+        // We reject CSRs where the same attribute (same OID) appears multiple times. Note that
+        // this is different from the case where the attribute (OID) appears once and has
+        // multiple values, that is handled by the second level of iteration below.
+        match (iter.next(), iter.next()) {
+            (Some(attr), None) => {
+                T::from_der(&attr.value).ok()
+            }
+            _ => None,
+        }
     }
 }
 
