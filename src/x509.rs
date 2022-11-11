@@ -188,6 +188,28 @@ impl BERDecodable for DnsAltNames<'static> {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct DirectoryName {
+    pub name: Name,
+}
+
+impl DerWrite for DirectoryName {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|writer| {
+            writer.next().write_tagged(Tag::context(4), |w| self.name.write(w));
+        });
+    }
+}
+
+impl BERDecodable for DirectoryName {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        let name = reader.read_tagged(Tag::context(4), |r| {
+            Name::decode_ber(r)
+        })?;
+        Ok(DirectoryName{ name })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

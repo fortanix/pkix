@@ -22,6 +22,7 @@ lazy_static! {
 
     // X.509 certificate extensions
     pub static ref subjectAltName: ObjectIdentifier = vec![2, 5, 29, 17].into();
+    pub static ref issuerAltName: ObjectIdentifier = vec![2, 5, 29, 18].into();
     pub static ref basicConstraints: ObjectIdentifier = vec![2, 5, 29, 19].into();
     pub static ref subjectKeyIdentifier: ObjectIdentifier = vec![2, 5, 29, 14].into();
     pub static ref authorityKeyIdentifier: ObjectIdentifier = vec![2, 5, 29, 35].into();
