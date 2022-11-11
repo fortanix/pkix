@@ -110,9 +110,10 @@ impl<S: BERDecodable + Integer, A: BERDecodable + SignatureAlgorithm, K: BERDeco
     fn decode_ber<'a, 'b>(reader: BERReader<'a, 'b>) -> ASN1Result<Self> {
         reader.read_sequence(|r| {
             let version = r.read_optional(|r| r.read_tagged(Tag::context(0), |r| r.read_u8()))?.unwrap_or(0);
-            if version != 0 && version != 1 && version != 2 {
-                return Err(ASN1Error::new(ASN1ErrorKind::Invalid));
-            }
+            match version {
+                0 | 1 | 2 => { /* known version */ }
+                _ => { return Err(ASN1Error::new(ASN1ErrorKind::Invalid)); }
+            };
             let serial = S::decode_ber(r.next())?;
             let sigalg = A::decode_ber(r.next())?;
             let issuer = Name::decode_ber(r.next())?;
