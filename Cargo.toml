@@ -9,6 +9,7 @@ categories = ["cryptography"]
 repository = "https://github.com/fortanix/pkix"
 
 [dependencies]
+hex = "0.4.3"
 yasna = { version = "0.3", features = ["num-bigint", "bit-vec"] }
 num-bigint = { version = "0.2", default-features = false }
 num-integer = { version = "0.1", default-features = false }

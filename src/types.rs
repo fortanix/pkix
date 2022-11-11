@@ -12,6 +12,7 @@ use std::borrow::Cow;
 use std::str;
 use std::fmt;
 use chrono::{self, Utc, Datelike, Timelike, TimeZone};
+use hex::ToHex;
 
 use {DerWrite, oid};
 
@@ -102,35 +103,35 @@ impl Name {
     }
 }
 
-impl fmt::Display for Name {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (i,v) in self.value.iter().enumerate() {
-            if i > 0 {
-                write!(f, ", ")?;
-            }
+fn format_oid(oid: &ObjectIdentifier) -> String {
+    match oid::OID_TO_NAME.get(oid) {
+        Some(o) => o.to_string(),
+        None => oid.components().iter().map(|c| c.to_string()).collect::<Vec<_>>().join(".")
+    }
+}
 
-            // print key (oid)
-            if let Some(o) = oid::OID_TO_NAME.get(&v.0) {
-                write!(f, "{}", o)?;
-            } else {
-                for (j,c) in v.0.components().iter().enumerate() {
-                    if j > 0 {
-                        write!(f, ".")?;
-                    }
-                    write!(f, "{}", c)?;
-                }
+fn format_der(der: &TaggedDerValue) -> String {
+    if der.pcbit() == PCBit::Constructed {
+        der.value().encode_hex()
+    } else {
+        match der.tag() {
+            TAG_NUMERICSTRING | TAG_PRINTABLESTRING | TAG_IA5STRING | TAG_UTF8STRING => {
+                String::from_utf8_lossy(&der.value()).to_string()
             }
-            write!(f, "=")?;
-
-            // print value
-            match (v.1.pcbit(), v.1.tag()) {
-                (PCBit::Primitive, TAG_NUMERICSTRING) | (PCBit::Primitive, TAG_PRINTABLESTRING) | (PCBit::Primitive, TAG_IA5STRING) | (PCBit::Primitive, TAG_UTF8STRING) =>
-                    write!(f, "{}", String::from_utf8_lossy(&v.1.value()))?,
-                _ => for &byte in v.1.value() {
-                    write!(f, "{:x}", byte)?;
-                },
+            _ => {
+                der.value().encode_hex()
             }
         }
+    }
+}
+
+fn format_rdr(rdr: &(ObjectIdentifier, TaggedDerValue)) -> String {
+    format!("{}={}", format_oid(&rdr.0), format_der(&rdr.1))
+}
+
+impl fmt::Display for Name {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value.iter().map(|rdr| format_rdr(rdr)).collect::<Vec<_>>().join(", "))?;
         Ok(())
     }
 }

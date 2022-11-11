@@ -15,6 +15,7 @@ pub extern crate bit_vec;
 #[macro_use]
 extern crate lazy_static;
 extern crate chrono;
+extern crate hex;
 
 #[macro_use]
 pub mod derives;
