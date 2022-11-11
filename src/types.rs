@@ -225,11 +225,37 @@ impl Into<TaggedDerValue> for NameComponent {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Extensions(pub Vec<Extension>);
+
+impl BERDecodable for Extensions {
+    fn decode_ber<'a, 'b>(reader: BERReader<'a, 'b>) -> ASN1Result<Self> {
+        reader.read_sequence(|r| {
+            let mut extensions = Vec::<Extension>::new();
+            while let Some(ext) = r.read_optional(|r| Extension::decode_ber(r))? {
+                extensions.push(ext);
+            }
+            Ok(Extensions(extensions))
+        })
+    }
+}
+
+impl DerWrite for Extensions {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|writer| {
+            for extension in self.0.iter() {
+                extension.write(writer.next());
+            }
+        });
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Extension {
     pub oid: ObjectIdentifier,
     pub critical: bool,
     pub value: Vec<u8>,
 }
+
 impl From<Extension> for (ObjectIdentifier, bool, Vec<u8>) {
     fn from(e: Extension) -> (ObjectIdentifier, bool, Vec<u8>) {
         let Extension { oid, critical, value } = e;

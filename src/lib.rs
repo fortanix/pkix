@@ -18,6 +18,7 @@ extern crate chrono;
 
 #[macro_use]
 pub mod derives;
+pub mod error;
 pub mod algorithms;
 pub mod cms;
 pub mod oid;

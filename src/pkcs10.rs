@@ -5,16 +5,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERReader, DERWriter, BERDecodable, Tag};
+use crate::error::{Error, Pkcs10Error};
 use {DerWrite, FromDer};
-use types::*;
+use crate::{oid::extensionRequest, types::*};
 use bit_vec::BitVec;
 
 // RFC2986, 4.1
 
 pub type DerCertificationRequest =
-    CertificationRequest<CertificationRequestInfo<'static, DerSequence<'static>>,
+    CertificationRequest<DerCertificationRequestInfo,
                          DerSequence<'static>,
                          BitVec>;
+
+pub type DerCertificationRequestInfo = CertificationRequestInfo<'static, DerSequence<'static>>;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct CertificationRequest<I = CertificationRequestInfo<'static, DerSequence<'static>>,
@@ -91,7 +94,21 @@ impl<'a, K, A: SignatureAlgorithm, S> CertificationRequest<CertificationRequestI
     pub fn get_singular_attribute<T: FromDer + HasOid>(&self) -> Option<T> {
         self.get_singular_attribute_raw::<T>(T::oid())
     }
+
+    pub fn get_extensions(&self) -> Result<Option<Extensions>, Error> {
+        for a in self.reqinfo.attributes.iter() {
+            if a.oid != extensionRequest.clone() { continue }
+            let csr_extensions = <Extensions as FromDer>::from_der(
+                &a.value.get(0)
+                .ok_or_else(|| Pkcs10Error::InvalidAttributeValue(extensionRequest.clone()))?
+            )
+            .map_err(|_| Pkcs10Error::InvalidAttributeValue(extensionRequest.clone()))?;
+            return Ok(Some(csr_extensions))
+        }
+        Ok(None)
+    }
 }
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct CertificationRequestInfo<'e, K> {
     // version: v1
