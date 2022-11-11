@@ -43,6 +43,11 @@ lazy_static! {
     pub static ref NistP521: ObjectIdentifier = vec![1, 3, 132, 0, 35].into();
     pub static ref ecdsaWithSHA256: ObjectIdentifier = vec![1, 2, 840, 10045, 4, 3, 2].into();
 
+    // Brainpool curves: RFC5639, 4.1
+    pub static ref Brainpool256R1: ObjectIdentifier = vec![1, 3, 36, 3, 3, 2, 8, 1, 1, 7].into();
+    pub static ref Brainpool384R1: ObjectIdentifier = vec![1, 3, 36, 3, 3, 2, 8, 1, 1, 1].into();
+    pub static ref Brainpool512R1: ObjectIdentifier = vec![1, 3, 36, 3, 3, 2, 8, 1, 1, 13].into();
+
     // GOST elliptic curves: RFC4357
     pub static ref Gost256A: ObjectIdentifier = vec![1, 2, 643, 2, 2, 35, 1].into();
     pub static ref Gost256B: ObjectIdentifier = vec![1, 2, 643, 2, 2, 35, 2].into();
@@ -60,13 +65,21 @@ lazy_static! {
     pub static ref ctAuthData: ObjectIdentifier     = vec![1, 2, 840, 113549, 1, 9, 16, 1, 2].into();
 
     // KeyEncryptionAlgorithmIdentifier
-    pub static ref RSAES_OAEP : ObjectIdentifier    = vec![1, 2, 840, 113549, 1, 1, 7].into();
-    pub static ref sha256     : ObjectIdentifier    = vec![2, 16, 840, 1, 101, 3, 4, 2, 1].into();
-    pub static ref sha1       : ObjectIdentifier    = vec![1, 3, 14, 3, 2, 26].into();
-    pub static ref mgf1       : ObjectIdentifier    = vec![1, 2, 840, 113549, 1, 1, 8].into();
-    pub static ref aes128_cbc : ObjectIdentifier    = vec![2, 16, 840, 1, 101, 3, 4, 1, 2].into();
-    pub static ref RSASSA_PSS : ObjectIdentifier    = vec![1, 2, 840, 113549, 1, 1, 10].into();
+    pub static ref RSAES_OAEP:    ObjectIdentifier  = vec![1, 2, 840, 113549, 1, 1, 7].into();
+    pub static ref sha256:        ObjectIdentifier  = vec![2, 16, 840, 1, 101, 3, 4, 2, 1].into();
+    pub static ref sha1:          ObjectIdentifier  = vec![1, 3, 14, 3, 2, 26].into();
+    pub static ref mgf1:          ObjectIdentifier  = vec![1, 2, 840, 113549, 1, 1, 8].into();
+    pub static ref aes128_cbc:    ObjectIdentifier  = vec![2, 16, 840, 1, 101, 3, 4, 1, 2].into();
+    pub static ref RSASSA_PSS:    ObjectIdentifier  = vec![1, 2, 840, 113549, 1, 1, 10].into();
     pub static ref messageDigest: ObjectIdentifier  = vec![1, 2, 840, 113549, 1, 9, 4].into();
+
+    // Korean cryptography - 전자서명인증체계 OID 가이드라인 (Object Identifier
+    // Guideline for the Electronic Signature Certification System V1.7)
+    pub static ref Kcdsa:       ObjectIdentifier = vec![1, 0, 14888, 3, 0, 2].into();
+    pub static ref KcdsaSha1:   ObjectIdentifier = vec![1, 2, 410, 200004, 1, 23].into();
+    pub static ref KcdsaSha224: ObjectIdentifier = vec![1, 2, 410, 200004, 1, 40].into();
+    pub static ref KcdsaSha256: ObjectIdentifier = vec![1, 2, 410, 200004, 1, 27].into();
+    pub static ref EcKcdsa:     ObjectIdentifier = vec![1, 0, 14888, 3, 0, 5].into();
 }
 
 lazy_static! {
