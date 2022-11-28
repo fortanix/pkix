@@ -329,8 +329,8 @@ pub struct DateTime(chrono::DateTime<Utc>);
 impl DateTime {
     pub fn new(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> Self {
         DateTime(chrono::DateTime::from_utc(NaiveDateTime::new(
-                 NaiveDate::from_ymd(year.into(), month.into(), day.into()),
-                 NaiveTime::from_hms(hour.into(), minute.into(), second.into())), Utc))
+                 NaiveDate::from_ymd_opt(year.into(), month.into(), day.into()).unwrap(),
+                 NaiveTime::from_hms_opt(hour.into(), minute.into(), second.into()).unwrap()), Utc))
     }
 
     pub fn from_seconds_since_epoch(seconds: i64) -> Self {
