@@ -334,7 +334,7 @@ impl DateTime {
     }
 
     pub fn from_seconds_since_epoch(seconds: i64) -> Self {
-        DateTime(Utc.timestamp(seconds, 0))
+        DateTime(Utc.timestamp_opt(seconds, 0).unwrap())
     }
 
     pub fn to_seconds_since_epoch(&self) -> i64 {
