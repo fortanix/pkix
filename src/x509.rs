@@ -149,11 +149,13 @@ impl<S: BERDecodable + Integer, A: BERDecodable + SignatureAlgorithm, K: BERDeco
     }
 }
 
+#[deprecated(since="0.1.3", note="use `SubjectAltName` instead")]
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DnsAltNames<'a> {
     pub names: Vec<Cow<'a, str>>,
 }
 
+#[allow(deprecated)]
 impl<'a> DerWrite for DnsAltNames<'a> {
     fn write(&self, writer: DERWriter) {
         writer.write_sequence(|writer| {
@@ -166,6 +168,7 @@ impl<'a> DerWrite for DnsAltNames<'a> {
     }
 }
 
+#[allow(deprecated)]
 impl BERDecodable for DnsAltNames<'static> {
     fn decode_ber<'a, 'b>(reader: BERReader<'a, 'b>) -> ASN1Result<Self> {
         reader.read_sequence(|seq_reader| {
@@ -241,6 +244,7 @@ mod tests {
     use test::test_encode_decode;
 
     #[test]
+    #[allow(deprecated)]
     fn dns_alt_names() {
         let names = DnsAltNames {
             names: vec![
