@@ -570,14 +570,9 @@ impl BERDecodable for DerSequence<'static> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serialize::DerWrite;
+    use crate::test::test_encode_decode;
     use yasna;
     use yasna::tags::TAG_UTF8STRING;
-
-    fn test_encode_decode<T: DerWrite + BERDecodable + fmt::Debug + PartialEq>(value: &T, expected_der: &[u8]) {
-        assert_eq!(yasna::construct_der(|w| value.write(w)), expected_der);
-        assert_eq!(&yasna::parse_der(expected_der, |r| T::decode_ber(r)).unwrap(), value);
-    }
 
     #[test]
     fn name() {

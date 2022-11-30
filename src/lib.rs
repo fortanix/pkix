@@ -31,3 +31,15 @@ pub use serialize::{DerWrite, ToDer};
 pub use deserialize::{FromDer, FromBer};
 
 pub use yasna::{ASN1Error, ASN1Result};
+
+#[cfg(test)]
+pub(crate) mod test {
+    use super::*;
+    use yasna::BERDecodable;
+    use std::fmt::Debug;
+
+    pub fn test_encode_decode<T: DerWrite + BERDecodable + Debug + PartialEq>(value: &T, expected_der: &[u8]) {
+        assert_eq!(yasna::construct_der(|w| value.write(w)), expected_der);
+        assert_eq!(&yasna::parse_der(expected_der, |r| T::decode_ber(r)).unwrap(), value);
+    }
+}

@@ -8,6 +8,7 @@ use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERReader, DERWriter, BERDecod
 use {DerWrite, FromDer};
 use types::*;
 use bit_vec::BitVec;
+use oid;
 
 // RFC2986, 4.1
 
@@ -132,5 +133,67 @@ impl<K: BERDecodable> BERDecodable for CertificationRequestInfo<'static, K> {
 
             Ok(CertificationRequestInfo { subject, spki, attributes })
         })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct ExtensionRequest {
+    pub extensions: Extensions,
+}
+
+impl HasOid for ExtensionRequest {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::extensionRequest
+    }
+}
+
+impl DerWrite for ExtensionRequest {
+    fn write(&self, writer: DERWriter) {
+        self.extensions.write(writer)
+    }
+}
+
+impl BERDecodable for ExtensionRequest {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        Ok(ExtensionRequest { extensions: Extensions::decode_ber(reader)? })
+    }
+}
+
+impl ExtensionRequest {
+    pub fn get_requested_extension<T: FromDer + HasOid>(&self) -> Option<T> {
+        self.extensions.get_extension::<T>()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::test_encode_decode;
+
+    #[test]
+    fn extension_request() {
+        let extension_request = ExtensionRequest {
+            extensions: Extensions(vec![
+                Extension {
+                    oid: oid::basicConstraints.clone(),
+                    critical: true,
+                    value: vec![0x30, 0x00],
+                },
+                Extension {
+                    oid: oid::keyUsage.clone(),
+                    critical: true,
+                    value: vec![0x03, 0x03, 0x07, 0x80, 0x00],
+                },
+            ])
+        };
+
+        let der = &[
+            0x30, 0x1f, 0x30, 0x0c, 0x06, 0x03, 0x55, 0x1d,
+            0x13, 0x01, 0x01, 0xff, 0x04, 0x02, 0x30, 0x00,
+            0x30, 0x0f, 0x06, 0x03, 0x55, 0x1d, 0x0f, 0x01,
+            0x01, 0xff, 0x04, 0x05, 0x03, 0x03, 0x07, 0x80,
+            0x00];
+
+        test_encode_decode(&extension_request, der);
     }
 }
