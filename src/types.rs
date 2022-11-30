@@ -424,6 +424,11 @@ mod tests {
     use yasna;
     use yasna::tags::TAG_UTF8STRING;
 
+    fn test_encode_decode<T: DerWrite + BERDecodable + fmt::Debug + PartialEq>(value: &T, expected_der: &[u8]) {
+        assert_eq!(yasna::construct_der(|w| value.write(w)), expected_der);
+        assert_eq!(&yasna::parse_der(expected_der, |r| T::decode_ber(r)).unwrap(), value);
+    }
+
     #[test]
     fn name() {
         let name = Name {
@@ -439,9 +444,7 @@ mod tests {
                        0x54, 0x65, 0x73, 0x74, 0x20, 0x6e, 0x61, 0x6d, 0x65, 0x31, 0x19, 0x30, 0x17,
                        0x06, 0x03, 0x55, 0x04, 0x0d, 0x0c, 0x10, 0x54, 0x65, 0x73, 0x74, 0x20, 0x64,
                        0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e];
-
-        assert_eq!(yasna::construct_der(|w| name.write(w)), der);
-        assert_eq!(yasna::parse_der(&der, |r| Name::decode_ber(r)).unwrap(), name);
+        test_encode_decode(&name, &der);
     }
 
     #[test]
@@ -482,8 +485,7 @@ mod tests {
                        0x31, 0x10, 0x04, 0x06, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x21, 0x04, 0x06, 0x48,
                        0x65, 0x6c, 0x6c, 0x6f, 0x21];
 
-        assert_eq!(yasna::construct_der(|w| attr.write(w)), der);
-        assert_eq!(yasna::parse_der(&der, |r| Attribute::decode_ber(r)).unwrap(), attr);
+        test_encode_decode(&attr, &der);
     }
 
     #[test]
@@ -493,7 +495,6 @@ mod tests {
         let der = vec![0x17, 0x0d, 0x31, 0x37, 0x30, 0x35, 0x31, 0x39, 0x31, 0x32, 0x33, 0x34,
                        0x35, 0x36, 0x5a];
 
-        assert_eq!(yasna::construct_der(|w| datetime.write(w)), der);
-        assert_eq!(yasna::parse_der(&der, |r| DateTime::decode_ber(r)).unwrap(), datetime);
+        test_encode_decode(&datetime, &der);
     }
 }
