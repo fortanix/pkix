@@ -43,6 +43,11 @@ lazy_static! {
     pub static ref NistP521: ObjectIdentifier = vec![1, 3, 132, 0, 35].into();
     pub static ref ecdsaWithSHA256: ObjectIdentifier = vec![1, 2, 840, 10045, 4, 3, 2].into();
 
+    // Brainpool curves: RFC5639, 4.1
+    pub static ref Brainpool256R1: ObjectIdentifier = vec![1, 3, 36, 3, 3, 2, 8, 1, 1, 7].into();
+    pub static ref Brainpool384R1: ObjectIdentifier = vec![1, 3, 36, 3, 3, 2, 8, 1, 1, 1].into();
+    pub static ref Brainpool512R1: ObjectIdentifier = vec![1, 3, 36, 3, 3, 2, 8, 1, 1, 13].into();
+
     // GOST elliptic curves: RFC4357
     pub static ref Gost256A: ObjectIdentifier = vec![1, 2, 643, 2, 2, 35, 1].into();
     pub static ref Gost256B: ObjectIdentifier = vec![1, 2, 643, 2, 2, 35, 2].into();
