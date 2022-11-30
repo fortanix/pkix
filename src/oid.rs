@@ -197,10 +197,12 @@ lazy_static! {
             [1, 3, 6, 1, 5, 5, 7, 3, 8] => keyUsageTimeStamping,
             [1, 3, 6, 1, 5, 5, 7, 3, 9] => keyUsageOCSPSigning,
 
+            [1, 2, 840, 113549, 1, 1, 5] => sha1withRSA,
             [1, 2, 840, 113549, 1, 1, 14] => sha224withRSA,
             [1, 2, 840, 113549, 1, 1, 11] => sha256withRSA,
             [1, 2, 840, 113549, 1, 1, 12] => sha384withRSA,
             [1, 2, 840, 113549, 1, 1, 13] => sha512withRSA,
+            [1, 2, 840, 10045, 4, 1] => sha1withECDSA,
             [1, 2, 840, 10045, 4, 3, 1] => sha224withECDSA,
             [1, 2, 840, 10045, 4, 3, 2] => sha256withECDSA,
             [1, 2, 840, 10045, 4, 3, 3] => sha384withECDSA,
