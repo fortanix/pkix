@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERReader, DERWriter, BERDecodable, PCBit};
+use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERReader, DERWriter, BERDecodable, PCBit, Tag};
 use yasna::tags::*;
 pub use yasna::models::{ObjectIdentifier, ParseOidError, TaggedDerValue};
 use std::borrow::Cow;
@@ -12,6 +12,7 @@ use std::str;
 use std::fmt;
 use chrono::{self, Utc, Datelike, Timelike, TimeZone};
 use {DerWrite, FromDer, oid};
+use crate::serialize::WriteIa5StringSafe;
 
 pub trait HasOid {
     fn oid() -> &'static ObjectIdentifier;
@@ -79,6 +80,104 @@ impl BERDecodable for EcdsaX962<Sha256> {
     }
 }
 
+/// The GeneralName type, as defined in [RFC 5280](https://www.rfc-editor.org/rfc/rfc5280#appendix-A.2).
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum GeneralName<'a> {
+    OtherName(ObjectIdentifier, TaggedDerValue),
+    Rfc822Name(Cow<'a, str>),
+    DnsName(Cow<'a, str>),
+    // x400Address is not supported
+    DirectoryName(Name),
+    // ediPartyName is not supported
+    UniformResourceIdentifier(Cow<'a, str>),
+    IpAddress(Vec<u8>),
+    RegisteredID(ObjectIdentifier),
+}
+
+impl<'a> GeneralName<'a> {
+    const TAG_OTHER_NAME: u64 = 0;
+    const TAG_RFC822_NAME: u64 = 1;
+    const TAG_DNS_NAME: u64 = 2;
+    const TAG_DIRECTORY_NAME: u64 = 4;
+    const TAG_UNIFORM_RESOURCE_IDENTIFIER: u64 = 6;
+    const TAG_IP_ADDRESS: u64 = 7;
+    const TAG_REGISTERED_ID: u64 = 8;
+}
+
+impl<'a> DerWrite for GeneralName<'a> {
+    fn write(&self, writer: DERWriter) {
+        match self {
+            GeneralName::OtherName(oid, tdv) =>
+                writer.write_tagged_implicit(
+                    Tag::context(Self::TAG_OTHER_NAME),
+                    |w| w.write_sequence(|w| {
+                        oid.write(w.next());
+                        w.next().write_tagged(Tag::context(0), |w| tdv.write(w));
+                    })),
+            GeneralName::Rfc822Name(s) =>
+                writer.write_tagged_implicit(
+                    Tag::context(Self::TAG_RFC822_NAME),
+                    |w| w.write_ia5_string_safe(&s)
+                ),
+            GeneralName::DnsName(s) =>
+                writer.write_tagged_implicit(
+                    Tag::context(Self::TAG_DNS_NAME),
+                    |w| w.write_ia5_string_safe(&s)
+                ),
+            GeneralName::DirectoryName(n) =>
+                // explicit tagging because Name is an untagged CHOICE (X.680-0207 clause 30.6.c)
+                writer.write_tagged(
+                    Tag::context(Self::TAG_DIRECTORY_NAME),
+                    |w| n.write(w)
+                ),
+            GeneralName::UniformResourceIdentifier(s) =>
+                writer.write_tagged_implicit(
+                    Tag::context(Self::TAG_UNIFORM_RESOURCE_IDENTIFIER),
+                    |w| w.write_ia5_string_safe(&s)
+                ),
+            GeneralName::IpAddress(a) =>
+                writer.write_tagged_implicit(
+                    Tag::context(Self::TAG_IP_ADDRESS),
+                    |w| a.write(w)
+                ),
+            GeneralName::RegisteredID(oid) =>
+                writer.write_tagged_implicit(
+                    Tag::context(Self::TAG_REGISTERED_ID),
+                    |w| oid.write(w)
+                ),
+        }
+    }
+}
+
+impl<'a> BERDecodable for GeneralName<'a> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        let tag_number = reader.lookahead_tag()?.tag_number;
+        if tag_number == Self::TAG_DIRECTORY_NAME {
+            // explicit tagging because Name is an untagged CHOICE (X.680-0207 clause 30.6.c)
+            reader.read_tagged(Tag::context(tag_number), |r| {
+                Ok(GeneralName::DirectoryName(Name::decode_ber(r)?))
+            })
+        } else {
+            reader.read_tagged_implicit(Tag::context(tag_number), |r| {
+                match tag_number {
+                    Self::TAG_OTHER_NAME => {
+                        r.read_sequence(|r| {
+                            let oid = ObjectIdentifier::decode_ber(r.next())?;
+                            let value = r.next().read_tagged(Tag::context(0), |r| TaggedDerValue::decode_ber(r))?;
+                            Ok(GeneralName::OtherName(oid, value))
+                        })
+                    },
+                    Self::TAG_RFC822_NAME => Ok(GeneralName::Rfc822Name(r.read_ia5_string()?.into())),
+                    Self::TAG_DNS_NAME => Ok(GeneralName::DnsName(r.read_ia5_string()?.into())),
+                    Self::TAG_UNIFORM_RESOURCE_IDENTIFIER => Ok(GeneralName::UniformResourceIdentifier(r.read_ia5_string()?.into())),
+                    Self::TAG_IP_ADDRESS => Ok(GeneralName::IpAddress(r.read_bytes()?)),
+                    Self::TAG_REGISTERED_ID => Ok(GeneralName::RegisteredID(ObjectIdentifier::decode_ber(r)?)),
+                    _ => Err(ASN1Error::new(ASN1ErrorKind::Invalid)),
+                }
+            })
+        }
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Name {
@@ -525,6 +624,90 @@ mod tests {
             0x00];
 
         test_encode_decode(&extensions, der);
+    }
+
+    #[test]
+    fn general_name_other_name() {
+        let general_name = GeneralName::OtherName(
+            ObjectIdentifier::new(vec![1,2,3,4]),
+            TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"Test name".to_vec())
+        );
+
+        let der = &[
+            0xa0, 0x12, 0x06, 0x03, 0x2a, 0x03, 0x04, 0xa0,
+            0x0b, 0x0c, 0x09, 0x54, 0x65, 0x73, 0x74, 0x20,
+            0x6e, 0x61, 0x6d, 0x65];
+
+        test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_name_rfc822_name() {
+        let general_name = GeneralName::Rfc822Name("Test name".into());
+        let der = &[
+            0x81, 0x09, 0x54, 0x65, 0x73, 0x74, 0x20, 0x6e,
+            0x61, 0x6d, 0x65];
+
+        test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_name_dns_name() {
+        let general_name = GeneralName::DnsName("Test name".into());
+        let der = &[
+            0x82, 0x09, 0x54, 0x65, 0x73, 0x74, 0x20, 0x6e,
+            0x61, 0x6d, 0x65];
+
+        test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_name_directory_name() {
+        let general_name = GeneralName::DirectoryName(
+            Name {
+                value: vec![
+                    (oid::commonName.clone(),
+                     TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"Test name".to_vec())),
+                    (oid::description.clone(),
+                     TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"Test description".to_vec())),
+                ]
+            }
+        );
+
+        let der = &[
+            0xa4, 0x31, 0x30, 0x2f, 0x31, 0x12, 0x30, 0x10,
+            0x06, 0x03, 0x55, 0x04, 0x03, 0x0c, 0x09, 0x54,
+            0x65, 0x73, 0x74, 0x20, 0x6e, 0x61, 0x6d, 0x65,
+            0x31, 0x19, 0x30, 0x17, 0x06, 0x03, 0x55, 0x04,
+            0x0d, 0x0c, 0x10, 0x54, 0x65, 0x73, 0x74, 0x20,
+            0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74,
+            0x69, 0x6f, 0x6e];
+
+        test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_name_uniform_resource_identifier() {
+        let general_name = GeneralName::UniformResourceIdentifier("Test name".into());
+        let der = &[
+            0x86, 0x09, 0x54, 0x65, 0x73, 0x74, 0x20, 0x6e,
+            0x61, 0x6d, 0x65];
+
+        test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_name_ip_address() {
+        let general_name = GeneralName::IpAddress(vec![127,0,0,1]);
+        let der = &[0x87, 0x04, 0x7f, 0x00, 0x00, 0x01];
+        test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_name_registered_id() {
+        let general_name = GeneralName::RegisteredID(ObjectIdentifier::new(vec![1,2,3,4]));
+        let der = &[0x88, 0x03, 0x2a, 0x03, 0x04];
+        test_encode_decode(&general_name, der);
     }
 
     #[test]
