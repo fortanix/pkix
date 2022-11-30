@@ -86,6 +86,7 @@ impl<'a, K, A: SignatureAlgorithm, S> CertificationRequest<CertificationRequestI
         }
     }
 }
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct CertificationRequestInfo<'e, K> {
     // version: v1

@@ -11,8 +11,7 @@ use std::borrow::Cow;
 use std::str;
 use std::fmt;
 use chrono::{self, Utc, Datelike, Timelike, TimeZone};
-
-use {DerWrite, oid};
+use {DerWrite, FromDer, oid};
 
 pub trait HasOid {
     fn oid() -> &'static ObjectIdentifier;
@@ -208,6 +207,38 @@ impl From<String> for NameComponent {
 impl From<Vec<u8>> for NameComponent {
     fn from(b: Vec<u8>) -> NameComponent {
         NameComponent::Bytes(b)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Extensions(pub Vec<Extension>);
+
+impl DerWrite for Extensions {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence_of(|w| {
+            for extension in &self.0 {
+                extension.write(w.next());
+            }
+        });
+    }
+}
+
+impl BERDecodable for Extensions {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        Ok(Extensions(reader.collect_sequence_of(Extension::decode_ber)?))
+    }
+}
+
+impl Extensions {
+    pub fn get_extension<T: FromDer + HasOid>(&self) -> Option<T> {
+        let oid = T::oid();
+
+        // We reject extensions that appear multiple times.
+        let mut iter = self.0.iter().filter(|a| a.oid == *oid);
+        match (iter.next(), iter.next()) {
+            (Some(attr), None) => T::from_der(&attr.value).ok(),
+            _ => None,
+        }
     }
 }
 
@@ -469,6 +500,31 @@ mod tests {
 
         let parsed = yasna::parse_ber(&ber[..], |r| Name::decode_ber(r)).unwrap();
         assert_eq!(parsed.value.len(), 5);
+    }
+
+    #[test]
+    fn extensions() {
+        let extensions = Extensions(vec![
+            Extension {
+                oid: oid::basicConstraints.clone(),
+                critical: true,
+                value: vec![0x30, 0x00],
+            },
+            Extension {
+                oid: oid::keyUsage.clone(),
+                critical: true,
+                value: vec![0x03, 0x03, 0x07, 0x80, 0x00],
+            },
+        ]);
+
+        let der = &[
+            0x30, 0x1f, 0x30, 0x0c, 0x06, 0x03, 0x55, 0x1d,
+            0x13, 0x01, 0x01, 0xff, 0x04, 0x02, 0x30, 0x00,
+            0x30, 0x0f, 0x06, 0x03, 0x55, 0x1d, 0x0f, 0x01,
+            0x01, 0xff, 0x04, 0x05, 0x03, 0x03, 0x07, 0x80,
+            0x00];
+
+        test_encode_decode(&extensions, der);
     }
 
     #[test]
