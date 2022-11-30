@@ -53,6 +53,12 @@ lazy_static! {
     pub static ref Gost256B: ObjectIdentifier = vec![1, 2, 643, 2, 2, 35, 2].into();
     pub static ref Gost256C: ObjectIdentifier = vec![1, 2, 643, 2, 2, 35, 3].into();
 
+    // X25519 identifiers: RFC 8410
+    pub static ref Curve25519: ObjectIdentifier = vec![1, 3, 101, 110].into();
+    pub static ref Curve448: ObjectIdentifier = vec![1, 3, 101, 111].into();
+    pub static ref Ed25519: ObjectIdentifier = vec![1, 3, 101, 112].into();
+    pub static ref Ed448: ObjectIdentifier = vec![1, 3, 101, 113].into();
+
     // CMS: RFC5652
     // named as id-ct-contentInfo in the standard.
     pub static ref ctContentInfo : ObjectIdentifier = vec![1, 2, 840, 113549, 1, 9, 16, 1, 6].into();
