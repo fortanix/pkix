@@ -9,6 +9,7 @@ use num_integer::Integer;
 use num_bigint::BigUint;
 use std::borrow::Cow;
 use bit_vec::BitVec;
+use oid;
 
 use DerWrite;
 use types::*;
@@ -188,14 +189,59 @@ impl BERDecodable for DnsAltNames<'static> {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct SubjectAltName<'a> {
+    pub names: GeneralNames<'a>,
+}
+
+impl<'a> HasOid for SubjectAltName<'a> {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::subjectAltName
+    }
+}
+
+impl<'a> DerWrite for SubjectAltName<'a> {
+    fn write(&self, writer: DERWriter) {
+        self.names.write(writer)
+    }
+}
+
+impl<'a> BERDecodable for SubjectAltName<'a> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        Ok(SubjectAltName { names: GeneralNames::decode_ber(reader)? })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct IssuerAltName<'a> {
+    pub names: GeneralNames<'a>,
+}
+
+impl<'a> HasOid for IssuerAltName<'a> {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::issuerAltName
+    }
+}
+
+impl<'a> DerWrite for IssuerAltName<'a> {
+    fn write(&self, writer: DERWriter) {
+        self.names.write(writer)
+    }
+}
+
+impl<'a> BERDecodable for IssuerAltName<'a> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        Ok(IssuerAltName { names: GeneralNames::decode_ber(reader)? })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serialize::DerWrite;
-    use yasna;
+    use test::test_encode_decode;
 
     #[test]
-    fn alt_names() {
+    fn dns_alt_names() {
         let names = DnsAltNames {
             names: vec![
                 Cow::Borrowed("www.example.com"),
@@ -208,8 +254,29 @@ mod tests {
                     0x6d, 0x82, 0x0b, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c,
                     0x65, 0x2e, 0x63, 0x6f, 0x6d];
 
-        assert_eq!(&*yasna::construct_der(|w|names.write(w)), der);
+        test_encode_decode(&names, der);
+    }
 
-        assert_eq!(yasna::parse_der(der, |r| DnsAltNames::decode_ber(r)).unwrap(), names);
+    #[test]
+    fn subject_issuer_alt_name() {
+        let subject_alt_name = SubjectAltName {
+            names: GeneralNames(vec![
+                GeneralName::IpAddress(vec![127,0,0,1]),
+                GeneralName::RegisteredID(ObjectIdentifier::new(vec![1,2,3,4]))
+            ]),
+        };
+        let issuer_alt_name = IssuerAltName {
+            names: GeneralNames(vec![
+                GeneralName::IpAddress(vec![127,0,0,1]),
+                GeneralName::RegisteredID(ObjectIdentifier::new(vec![1,2,3,4]))
+            ]),
+        };
+
+        let der = &[
+            0x30, 0x0b, 0x87, 0x04, 0x7f, 0x00, 0x00, 0x01,
+            0x88, 0x03, 0x2a, 0x03, 0x04];
+
+        test_encode_decode(&subject_alt_name, der);
+        test_encode_decode(&issuer_alt_name, der);
     }
 }
