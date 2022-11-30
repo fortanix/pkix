@@ -179,6 +179,26 @@ impl<'a> BERDecodable for GeneralName<'a> {
     }
 }
 
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+pub struct GeneralNames<'a>(pub Vec<GeneralName<'a>>);
+
+impl<'a> DerWrite for GeneralNames<'a> {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence_of(|w| {
+            for general_name in &self.0 {
+                general_name.write(w.next())
+            }
+        })
+    }
+}
+
+impl<'a> BERDecodable for GeneralNames<'a> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        Ok(GeneralNames(reader.collect_sequence_of(GeneralName::decode_ber)?))
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Name {
     // The actual ASN.1 type is Vec<HashSet<(ObjectIdentifier, TaggedDerValue)>>.
@@ -708,6 +728,20 @@ mod tests {
         let general_name = GeneralName::RegisteredID(ObjectIdentifier::new(vec![1,2,3,4]));
         let der = &[0x88, 0x03, 0x2a, 0x03, 0x04];
         test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_names() {
+        let general_names = GeneralNames(vec![
+            GeneralName::IpAddress(vec![127,0,0,1]),
+            GeneralName::RegisteredID(ObjectIdentifier::new(vec![1,2,3,4]))
+        ]);
+
+        let der = &[
+            0x30, 0x0b, 0x87, 0x04, 0x7f, 0x00, 0x00, 0x01,
+            0x88, 0x03, 0x2a, 0x03, 0x04];
+
+        test_encode_decode(&general_names, der);
     }
 
     #[test]
