@@ -103,6 +103,153 @@ impl<'a> GeneralName<'a> {
     const TAG_UNIFORM_RESOURCE_IDENTIFIER: u64 = 6;
     const TAG_IP_ADDRESS: u64 = 7;
     const TAG_REGISTERED_ID: u64 = 8;
+
+    pub fn is_other_name(&self) -> bool {
+        match *self {
+            GeneralName::OtherName(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_other_name(&self) -> Option<(&ObjectIdentifier, &TaggedDerValue)> {
+        match self {
+            GeneralName::OtherName(oid, tdv) => Some((oid, tdv)),
+            _ => None,
+        }
+    }
+
+    pub fn into_other_name(self) -> Option<(ObjectIdentifier, TaggedDerValue)> {
+        match self {
+            GeneralName::OtherName(oid, tdv) => Some((oid, tdv)),
+            _ => None,
+        }
+    }
+
+    pub fn is_rfc822_name(&self) -> bool {
+        match *self {
+            GeneralName::Rfc822Name(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_rfc822_name(&self) -> Option<&Cow<'a, str>> {
+        match self {
+            GeneralName::Rfc822Name(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn into_rfc822_name(self) -> Option<Cow<'a, str>> {
+        match self {
+            GeneralName::Rfc822Name(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn is_dns_name(&self) -> bool {
+        match *self {
+            GeneralName::DnsName(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_dns_name(&self) -> Option<&Cow<'a, str>> {
+        match self {
+            GeneralName::DnsName(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn into_dns_name(self) -> Option<Cow<'a, str>> {
+        match self {
+            GeneralName::DnsName(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn is_directory_name(&self) -> bool {
+        match *self {
+            GeneralName::DirectoryName(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_directory_name(&self) -> Option<&Name> {
+        match self {
+            GeneralName::DirectoryName(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn into_directory_name(self) -> Option<Name> {
+        match self {
+            GeneralName::DirectoryName(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn is_uniform_resource_identifier(&self) -> bool {
+        match *self {
+            GeneralName::UniformResourceIdentifier(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_uniform_resource_identifier(&self) -> Option<&Cow<'a, str>> {
+        match self {
+            GeneralName::UniformResourceIdentifier(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn into_uniform_resource_identifier(self) -> Option<Cow<'a, str>> {
+        match self {
+            GeneralName::UniformResourceIdentifier(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn is_ip_address(&self) -> bool {
+        match *self {
+            GeneralName::IpAddress(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_ip_address(&self) -> Option<&Vec<u8>> {
+        match self {
+            GeneralName::IpAddress(ip) => Some(ip),
+            _ => None,
+        }
+    }
+
+    pub fn into_ip_address(self) -> Option<Vec<u8>> {
+        match self {
+            GeneralName::IpAddress(ip) => Some(ip),
+            _ => None,
+        }
+    }
+
+    pub fn is_registered_id(&self) -> bool {
+        match *self {
+            GeneralName::RegisteredID(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_registered_id(&self) -> Option<&ObjectIdentifier> {
+        match self {
+            GeneralName::RegisteredID(oid) => Some(oid),
+            _ => None,
+        }
+    }
+
+    pub fn into_registered_id(self) -> Option<ObjectIdentifier> {
+        match self {
+            GeneralName::RegisteredID(oid) => Some(oid),
+            _ => None,
+        }
+    }
 }
 
 impl<'a> DerWrite for GeneralName<'a> {
