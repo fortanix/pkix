@@ -169,10 +169,10 @@ impl<'a> DerWrite for DnsAltNames<'a> {
 }
 
 #[allow(deprecated)]
-impl BERDecodable for DnsAltNames<'static> {
-    fn decode_ber<'a, 'b>(reader: BERReader<'a, 'b>) -> ASN1Result<Self> {
+impl<'a> BERDecodable for DnsAltNames<'a> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
         reader.read_sequence(|seq_reader| {
-            let mut names = Vec::<Cow<'static, str>>::new();
+            let mut names = Vec::<Cow<'a, str>>::new();
 
             loop {
                 let res = seq_reader.read_optional(|r| {

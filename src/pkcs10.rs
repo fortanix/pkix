@@ -113,8 +113,8 @@ impl<'e, K: DerWrite> DerWrite for CertificationRequestInfo<'e, K> {
     }
 }
 
-impl<K: BERDecodable> BERDecodable for CertificationRequestInfo<'static, K> {
-    fn decode_ber<'a, 'b>(reader: BERReader<'a, 'b>) -> ASN1Result<Self> {
+impl<'a, K: BERDecodable> BERDecodable for CertificationRequestInfo<'a, K> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
         reader.read_sequence(|r| {
             let version = r.next().read_u8()?;
             if version != CERTIFICATION_REQUEST_INFO_V1 {

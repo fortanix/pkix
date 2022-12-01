@@ -410,12 +410,12 @@ impl<'a> DerWrite for Attribute<'a> {
     }
 }
 
-impl BERDecodable for Attribute<'static> {
-    fn decode_ber<'a, 'b>(reader: BERReader<'a, 'b>) -> ASN1Result<Self> {
+impl<'a> BERDecodable for Attribute<'a> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
         reader.read_sequence(|seq_reader| {
             let oid = ObjectIdentifier::decode_ber(seq_reader.next())?;
 
-            let mut value = Vec::<DerSequence<'static>>::new();
+            let mut value = Vec::new();
             seq_reader.next().read_set_of(|r| {
                 value.push(DerSequence::decode_ber(r)?);
                 Ok(())
@@ -561,8 +561,8 @@ impl<'a> AsRef<[u8]> for DerSequence<'a> {
     }
 }
 
-impl BERDecodable for DerSequence<'static> {
-    fn decode_ber<'a, 'b>(reader: BERReader<'a, 'b>) -> ASN1Result<Self> {
+impl<'a> BERDecodable for DerSequence<'a> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
         Ok(reader.read_der()?.into())
     }
 }
