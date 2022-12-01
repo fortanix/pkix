@@ -10,6 +10,7 @@ pub use yasna::models::{ObjectIdentifier, ParseOidError, TaggedDerValue};
 use std::borrow::Cow;
 use std::str;
 use std::fmt;
+use std::ops::{Deref, DerefMut};
 use chrono::{self, Utc, Datelike, Timelike, TimeZone};
 use {DerWrite, FromDer, oid};
 use crate::serialize::WriteIa5StringSafe;
@@ -199,6 +200,32 @@ impl<'a> BERDecodable for GeneralNames<'a> {
     }
 }
 
+impl<'a> Deref for GeneralNames<'a> {
+    type Target = Vec<GeneralName<'a>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> DerefMut for GeneralNames<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'a> From<Vec<GeneralName<'a>>> for GeneralNames<'a> {
+    fn from(names: Vec<GeneralName<'a>>) -> GeneralNames<'a> {
+        GeneralNames(names)
+    }
+}
+
+impl<'a> From<GeneralNames<'a>> for Vec<GeneralName<'a>> {
+    fn from(general_names: GeneralNames<'a>) -> Vec<GeneralName<'a>> {
+        general_names.0
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Name {
     // The actual ASN.1 type is Vec<HashSet<(ObjectIdentifier, TaggedDerValue)>>.
@@ -345,6 +372,32 @@ impl DerWrite for Extensions {
 impl BERDecodable for Extensions {
     fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
         Ok(Extensions(reader.collect_sequence_of(Extension::decode_ber)?))
+    }
+}
+
+impl Deref for Extensions {
+    type Target = Vec<Extension>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Extensions {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl From<Vec<Extension>> for Extensions {
+    fn from(extensions: Vec<Extension>) -> Extensions {
+        Extensions(extensions)
+    }
+}
+
+impl From<Extensions> for Vec<Extension> {
+    fn from(extensions: Extensions) -> Vec<Extension> {
+        extensions.0
     }
 }
 
