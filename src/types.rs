@@ -503,6 +503,22 @@ impl From<Vec<u8>> for NameComponent {
     }
 }
 
+impl From<NameComponent> for TaggedDerValue {
+    fn from(nc: NameComponent) -> TaggedDerValue {
+        match nc {
+            NameComponent::Str(str) => TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, str.into_bytes()),
+            NameComponent::Bytes(mut val) => {
+                // mbedTLS does not support OCTET STRING in any name component. It does
+                // support BIT STRING, however, so we always use that. The first byte of
+                // a bit string is the number of unused bits. Since we start from a Vec<u8>,
+                // we always have a multiple of 8 bits and hence no bits are unused.
+                val.insert(0, 0);
+                TaggedDerValue::from_tag_and_bytes(TAG_BITSTRING, val)
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Extensions(pub Vec<Extension>);
 
