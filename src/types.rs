@@ -658,12 +658,16 @@ impl Into<chrono::DateTime<Utc>> for DateTime {
 }
 
 impl DateTime {
-    pub fn new(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> Self {
-        DateTime(Utc.ymd(year.into(), month.into(), day.into()).and_hms(hour.into(), minute.into(), second.into()))
+    pub fn new(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> Option<Self> {
+        Utc.with_ymd_and_hms(year.into(), month.into(), day.into(), hour.into(), minute.into(), second.into())
+            .earliest()
+            .map(Self)
     }
 
-    pub fn from_seconds_since_epoch(seconds: i64) -> Self {
-        DateTime(Utc.timestamp(seconds, 0))
+    pub fn from_seconds_since_epoch(seconds: i64) -> Option<Self> {
+        Utc.timestamp_opt(seconds, 0)
+            .earliest()
+            .map(Self)
     }
 
     pub fn to_seconds_since_epoch(&self) -> i64 {
@@ -744,7 +748,8 @@ impl BERDecodable for DateTime {
         let minute = iter.next().ok_or(ASN1Error::new(ASN1ErrorKind::Invalid))?;
         let second = iter.next().ok_or(ASN1Error::new(ASN1ErrorKind::Invalid))?;
 
-        Ok(DateTime::new(year, month, day, hour, minute, second))
+        DateTime::new(year, month, day, hour, minute, second)
+            .ok_or(ASN1Error::new(ASN1ErrorKind::Invalid))
     }
 }
 
@@ -974,7 +979,7 @@ mod tests {
 
     #[test]
     fn datetime() {
-        let datetime = DateTime::new(2017, 5, 19, 12, 34, 56);
+        let datetime = DateTime::new(2017, 5, 19, 12, 34, 56).unwrap();
 
         let der = vec![0x17, 0x0d, 0x31, 0x37, 0x30, 0x35, 0x31, 0x39, 0x31, 0x32, 0x33, 0x34,
                        0x35, 0x36, 0x5a];

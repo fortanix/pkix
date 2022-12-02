@@ -15,7 +15,7 @@ num-bigint = { version = "0.2", default-features = false }
 num-integer = { version = "0.1", default-features = false }
 bit-vec = "0.6"
 lazy_static = "1"
-chrono = "0.4"
+chrono = "0.4.23"
 b64-ct = "0.1.1"
 
 [dev-dependencies]
