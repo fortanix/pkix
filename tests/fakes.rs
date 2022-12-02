@@ -20,7 +20,7 @@ use self::yasna::tags::{TAG_UTF8STRING, TAG_PRINTABLESTRING};
 use self::pkix::types::{DateTime, DerSequence, Attribute, Extension, RsaPkcs15, Sha256};
 use self::pkix::{DerWrite, oid};
 use self::pkix::pkcs10::{CertificationRequest, CertificationRequestInfo};
-use self::pkix::x509::{Certificate, TbsCertificate};
+use self::pkix::x509::{Certificate, TbsCertificate, TBS_CERTIFICATE_V3};
 use self::pkix::cms::*;
 use self::pkix::algorithms::*;
 
@@ -64,29 +64,29 @@ pub fn csr(get_random_printable_string: fn(usize) -> Vec<u8>)
     }));
 
     CertificationRequest {
-            reqinfo: CertificationRequestInfo {
-                subject:
-                    vec![(oid::description.clone(),
-                          TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"Known keys only".to_vec())),
-                         (oid::dnQualifier.clone(),
-                          TaggedDerValue::from_tag_and_bytes(TAG_PRINTABLESTRING, get_random_printable_string(42)))].into(),
-                spki: yasna::construct_der(|w|
-                    w.write_sequence(|writer| {
-                        writer.next().write_sequence(|writer| {
-                            oid_rsa_encryption.write(writer.next());
-                            writer.next().write_null();
-                        });
-                        BitVec::from_bytes(&rsapubkey).write(writer.next());
-                    })
-                ).into(),
-                attributes: vec![Attribute {
-                                  oid: oid::extensionRequest.clone(),
-                                  value: vec![exts.into()],
-                              }],
-            },
-            sigalg: RsaPkcs15(Sha256),
-            sig: BitVec::from_elem(8, false),
-        }
+        reqinfo: CertificationRequestInfo {
+            subject:
+                vec![(oid::description.clone(),
+                      TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"Known keys only".to_vec())),
+                     (oid::dnQualifier.clone(),
+                      TaggedDerValue::from_tag_and_bytes(TAG_PRINTABLESTRING, get_random_printable_string(42)))].into(),
+            spki: yasna::construct_der(|w|
+                w.write_sequence(|writer| {
+                    writer.next().write_sequence(|writer| {
+                        oid_rsa_encryption.write(writer.next());
+                        writer.next().write_null();
+                    });
+                    BitVec::from_bytes(&rsapubkey).write(writer.next());
+                })
+            ).into(),
+            attributes: vec![Attribute {
+                              oid: oid::extensionRequest.clone(),
+                              value: vec![exts.into()],
+                          }],
+        },
+        sigalg: RsaPkcs15(Sha256),
+        sig: BitVec::from_elem(8, false),
+    }
 }
 
 pub fn csr_der(get_random_printable_string: fn(usize) -> Vec<u8>) -> Vec<u8> {
@@ -94,7 +94,7 @@ pub fn csr_der(get_random_printable_string: fn(usize) -> Vec<u8>) -> Vec<u8> {
 }
 
 
-pub fn cert(get_random_printable_string: fn(usize) -> Vec<u8>)
+pub fn cert(get_random_printable_string: fn(usize) -> Vec<u8>, version: u8)
     -> Certificate<TbsCertificate<i64, RsaPkcs15<Sha256>, DerSequence<'static>>, RsaPkcs15<Sha256>, BitVec>
 {
     let oid_rsa_encryption = ObjectIdentifier::from(vec![1, 2, 840, 113549, 1, 1, 1]);
@@ -108,42 +108,49 @@ pub fn cert(get_random_printable_string: fn(usize) -> Vec<u8>)
         })
     });
 
+    let extensions = if version == TBS_CERTIFICATE_V3 {
+        vec![Extension {
+            oid: oid::basicConstraints.clone(),
+            critical: true,
+            value: vec![0x30, 0],
+        }]
+    } else {
+        vec![]
+    };
+
     Certificate {
-            tbscert: TbsCertificate {
-                serial: 0,
-                sigalg: RsaPkcs15(Sha256),
-                issuer:
-                    vec![(oid::dnQualifier.clone(),
-                          TaggedDerValue::from_tag_and_bytes(TAG_PRINTABLESTRING, get_random_printable_string(42)))].into(),
-                validity_notbefore: DateTime::new(1970, 1, 1, 0, 0, 0).unwrap(),
-                validity_notafter: DateTime::new(1970, 1, 1, 0, 0, 0).unwrap(),
-                subject:
-                    vec![(oid::description.clone(),
-                          TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"Known keys only".to_vec())),
-                         (oid::dnQualifier.clone(),
-                          TaggedDerValue::from_tag_and_bytes(TAG_PRINTABLESTRING, get_random_printable_string(42)))].into(),
-                spki: yasna::construct_der(|w|
-                    w.write_sequence(|writer| {
-                        writer.next().write_sequence(|writer| {
-                            oid_rsa_encryption.write(writer.next());
-                            writer.next().write_null();
-                        });
-                        BitVec::from_bytes(&rsapubkey).write(writer.next());
-                    })
-                ).into(),
-                extensions: vec![Extension {
-                                  oid: oid::basicConstraints.clone(),
-                                  critical: true,
-                                  value: vec![0x30, 0],
-                              }],
-            },
+        tbscert: TbsCertificate {
+            version,
+            serial: 0,
             sigalg: RsaPkcs15(Sha256),
-            sig: BitVec::from_elem(8, false),
-        }
+            issuer:
+                vec![(oid::dnQualifier.clone(),
+                      TaggedDerValue::from_tag_and_bytes(TAG_PRINTABLESTRING, get_random_printable_string(42)))].into(),
+            validity_notbefore: DateTime::new(1970, 1, 1, 0, 0, 0).unwrap(),
+            validity_notafter: DateTime::new(1970, 1, 1, 0, 0, 0).unwrap(),
+            subject:
+                vec![(oid::description.clone(),
+                      TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"Known keys only".to_vec())),
+                     (oid::dnQualifier.clone(),
+                      TaggedDerValue::from_tag_and_bytes(TAG_PRINTABLESTRING, get_random_printable_string(42)))].into(),
+            spki: yasna::construct_der(|w|
+                w.write_sequence(|writer| {
+                    writer.next().write_sequence(|writer| {
+                        oid_rsa_encryption.write(writer.next());
+                        writer.next().write_null();
+                    });
+                    BitVec::from_bytes(&rsapubkey).write(writer.next());
+                })
+            ).into(),
+            extensions,
+        },
+        sigalg: RsaPkcs15(Sha256),
+        sig: BitVec::from_elem(8, false),
+    }
 }
 
-pub fn cert_der(get_random_printable_string: fn(usize) -> Vec<u8>) -> Vec<u8> {
-    yasna::construct_der(|w| cert(get_random_printable_string).write(w))
+pub fn cert_der(get_random_printable_string: fn(usize) -> Vec<u8>, version: u8) -> Vec<u8> {
+    yasna::construct_der(|w| cert(get_random_printable_string, version).write(w))
 }
 
 pub fn enveloped_data_v2() -> EnvelopedDataV2 {
@@ -171,7 +178,7 @@ pub fn fake_callback(_: &[u8]) -> Result<Vec<u8>, ()> {
 pub fn signed_data_v3(get_random_printable_string: fn(usize) -> Vec<u8>) -> SignedDataV3 {
     let enveloped_data: EnvelopedData = enveloped_data_v2().into();
     let encapsulated_content: EncapsulatedContentInfo = enveloped_data.into();
-    let cert = cert(get_random_printable_string);
+    let cert = cert(get_random_printable_string, TBS_CERTIFICATE_V3);
     let cert = yasna::construct_der(|w| cert.write(w));
     let signer_key_id = vec![0; 20];
 
@@ -230,9 +237,61 @@ fn fake_csr() {
     assert_eq!(yasna::construct_der(|w| csr.write(w)), der);
     assert_eq!(yasna::parse_der(&der, |r| CertificationRequest::decode_ber(r)).unwrap(), csr);
 }
+#[test]
+fn fake_cert_v1() {
+    use yasna::BERDecodable;
+
+    let der = vec![
+        0x30, 0x81, 0xfc, 0x30, 0x81, 0xe6, 0x02, 0x01, 0x00, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86,
+        0xf7, 0x0d, 0x01, 0x01, 0x0b, 0x05, 0x00, 0x30, 0x35, 0x31, 0x33, 0x30, 0x31, 0x06, 0x03, 0x55, 0x04,
+        0x2e, 0x13, 0x2a, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65,
+        0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73,
+        0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x30, 0x1e, 0x17, 0x0d, 0x37, 0x30,
+        0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a, 0x17, 0x0d, 0x37, 0x30, 0x30, 0x31,
+        0x30, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a, 0x30, 0x4f, 0x31, 0x18, 0x30, 0x16, 0x06, 0x03,
+        0x55, 0x04, 0x0d, 0x0c, 0x0f, 0x4b, 0x6e, 0x6f, 0x77, 0x6e, 0x20, 0x6b, 0x65, 0x79, 0x73, 0x20, 0x6f,
+        0x6e, 0x6c, 0x79, 0x31, 0x33, 0x30, 0x31, 0x06, 0x03, 0x55, 0x04, 0x2e, 0x13, 0x2a, 0x74, 0x65, 0x73,
+        0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74,
+        0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74,
+        0x65, 0x73, 0x74, 0x74, 0x65, 0x30, 0x2a, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d,
+        0x01, 0x01, 0x01, 0x05, 0x00, 0x03, 0x19, 0x00, 0x30, 0x16, 0x02, 0x11, 0x00, 0xa6, 0xe0, 0xd7, 0xc4,
+        0xc4, 0xbf, 0xcf, 0x69, 0x63, 0x60, 0xca, 0x77, 0x3d, 0x00, 0xa2, 0xb1, 0x02, 0x01, 0x03, 0x30, 0x0d,
+        0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0b, 0x05, 0x00, 0x03, 0x02, 0x00, 0x00];
+
+    let cert = cert(deterministic_printable_string, pkix::x509::TBS_CERTIFICATE_V1);
+    assert_eq!(yasna::construct_der(|w| cert.write(w)), der);
+    assert_eq!(yasna::parse_der(&der, |r| Certificate::decode_ber(r)).unwrap(), cert);
+}
 
 #[test]
-fn fake_cert() {
+fn fake_cert_v2() {
+    use yasna::BERDecodable;
+
+    let der = vec![
+        0x30, 0x82, 0x01, 0x01, 0x30, 0x81, 0xeb, 0xa0, 0x03, 0x02, 0x01, 0x01, 0x02, 0x01, 0x00, 0x30, 0x0d,
+        0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0b, 0x05, 0x00, 0x30, 0x35, 0x31, 0x33,
+        0x30, 0x31, 0x06, 0x03, 0x55, 0x04, 0x2e, 0x13, 0x2a, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74,
+        0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74,
+        0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65,
+        0x30, 0x1e, 0x17, 0x0d, 0x37, 0x30, 0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a,
+        0x17, 0x0d, 0x37, 0x30, 0x30, 0x31, 0x30, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x5a, 0x30, 0x4f,
+        0x31, 0x18, 0x30, 0x16, 0x06, 0x03, 0x55, 0x04, 0x0d, 0x0c, 0x0f, 0x4b, 0x6e, 0x6f, 0x77, 0x6e, 0x20,
+        0x6b, 0x65, 0x79, 0x73, 0x20, 0x6f, 0x6e, 0x6c, 0x79, 0x31, 0x33, 0x30, 0x31, 0x06, 0x03, 0x55, 0x04,
+        0x2e, 0x13, 0x2a, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65,
+        0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73,
+        0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x73, 0x74, 0x74, 0x65, 0x30, 0x2a, 0x30, 0x0d, 0x06, 0x09,
+        0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00, 0x03, 0x19, 0x00, 0x30, 0x16, 0x02,
+        0x11, 0x00, 0xa6, 0xe0, 0xd7, 0xc4, 0xc4, 0xbf, 0xcf, 0x69, 0x63, 0x60, 0xca, 0x77, 0x3d, 0x00, 0xa2,
+        0xb1, 0x02, 0x01, 0x03, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0b,
+        0x05, 0x00, 0x03, 0x02, 0x00, 0x00];
+
+    let cert = cert(deterministic_printable_string, pkix::x509::TBS_CERTIFICATE_V2);
+    assert_eq!(yasna::construct_der(|w| cert.write(w)), der);
+    assert_eq!(yasna::parse_der(&der, |r| Certificate::decode_ber(r)).unwrap(), cert);
+}
+
+#[test]
+fn fake_cert_v3() {
     use yasna::BERDecodable;
 
     let der = vec![
@@ -254,7 +313,7 @@ fn fake_cert() {
                  0xff, 0x04, 0x02, 0x30, 0x00, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,
                  0x0b, 0x05, 0x00, 0x03, 0x02, 0x00, 0x00];
 
-    let cert = cert(deterministic_printable_string);
+    let cert = cert(deterministic_printable_string, TBS_CERTIFICATE_V3);
     assert_eq!(yasna::construct_der(|w| cert.write(w)), der);
     assert_eq!(yasna::parse_der(&der, |r| Certificate::decode_ber(r)).unwrap(), cert);
 }
@@ -263,7 +322,7 @@ fn fake_cert() {
 fn no_extensions() {
     use yasna::BERDecodable;
 
-    let mut cert = cert(deterministic_printable_string);
+    let mut cert = cert(deterministic_printable_string, TBS_CERTIFICATE_V3);
     cert.tbscert.extensions = vec![];
 
     let der = yasna::construct_der(|w| cert.write(w));

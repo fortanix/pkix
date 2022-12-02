@@ -52,7 +52,7 @@ impl<T: BERDecodable, A: SignatureAlgorithm + BERDecodable, S: BERDecodable> BER
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct TbsCertificate<S: Integer, A: SignatureAlgorithm, K> {
-    // version: v3
+    pub version: u8,
     pub serial: S,
     pub sigalg: A,
     pub issuer: Name,
@@ -76,13 +76,17 @@ impl<S: Integer, A: SignatureAlgorithm, K> TbsCertificate<S, A, K> {
     }
 }
 
-const TBS_CERTIFICATE_V3: u8 = 2;
+pub const TBS_CERTIFICATE_V1: u8 = 0;
+pub const TBS_CERTIFICATE_V2: u8 = 1;
+pub const TBS_CERTIFICATE_V3: u8 = 2;
 
 impl<S: DerWrite + Integer, A: DerWrite + SignatureAlgorithm, K: DerWrite> DerWrite
     for TbsCertificate<S, A, K> {
     fn write(&self, writer: DERWriter) {
         writer.write_sequence(|writer| {
-            writer.next().write_tagged(Tag::context(0), |w| TBS_CERTIFICATE_V3.write(w));
+            if self.version != TBS_CERTIFICATE_V1 { // default value
+                writer.next().write_tagged(Tag::context(0), |w| self.version.write(w));
+            }
             self.serial.write(writer.next());
             self.sigalg.write(writer.next());
             self.issuer.write(writer.next());
@@ -108,10 +112,11 @@ impl<S: DerWrite + Integer, A: DerWrite + SignatureAlgorithm, K: DerWrite> DerWr
 impl<S: BERDecodable + Integer, A: BERDecodable + SignatureAlgorithm, K: BERDecodable> BERDecodable for TbsCertificate<S, A, K> {
     fn decode_ber<'a, 'b>(reader: BERReader<'a, 'b>) -> ASN1Result<Self> {
         reader.read_sequence(|r| {
-            let version = r.next().read_tagged(Tag::context(0), |r| r.read_u8())?;
-            if version != TBS_CERTIFICATE_V3 {
-                return Err(ASN1Error::new(ASN1ErrorKind::Invalid));
-            }
+            let version = r.read_optional(|r| r.read_tagged(Tag::context(0), |r| r.read_u8()))?.unwrap_or(0);
+            match version {
+                TBS_CERTIFICATE_V1 | TBS_CERTIFICATE_V2 | TBS_CERTIFICATE_V3 => { /* known version */ }
+                _ => { return Err(ASN1Error::new(ASN1ErrorKind::Invalid)); }
+            };
             let serial = S::decode_ber(r.next())?;
             let sigalg = A::decode_ber(r.next())?;
             let issuer = Name::decode_ber(r.next())?;
@@ -123,6 +128,9 @@ impl<S: BERDecodable + Integer, A: BERDecodable + SignatureAlgorithm, K: BERDeco
             let subject = Name::decode_ber(r.next())?;
             let spki = K::decode_ber(r.next())?;
             let extensions = r.read_optional(|r| {
+                if version != TBS_CERTIFICATE_V3 {
+                    return Err(ASN1Error::new(ASN1ErrorKind::Invalid));
+                }
                 r.read_tagged(Tag::context(3), |r| {
                     r.read_sequence(|r| {
                         let mut extensions = Vec::<Extension>::new();
@@ -143,7 +151,7 @@ impl<S: BERDecodable + Integer, A: BERDecodable + SignatureAlgorithm, K: BERDeco
                 })
             })?.unwrap_or(vec![]);
 
-            Ok(TbsCertificate { serial, sigalg, issuer, validity_notbefore, validity_notafter,
+            Ok(TbsCertificate { version, serial, sigalg, issuer, validity_notbefore, validity_notafter,
                                 subject, spki, extensions })
         })
     }
@@ -282,5 +290,21 @@ mod tests {
 
         test_encode_decode(&subject_alt_name, der);
         test_encode_decode(&issuer_alt_name, der);
+    }
+
+    #[test]
+    fn parse_v1_cert() {
+        let der = include_bytes!("../tests/data/v1_cert.der");
+        let cert = yasna::parse_der(der, |r| GenericCertificate::decode_ber(r)).unwrap();
+        assert_eq!(cert.tbscert.version, TBS_CERTIFICATE_V1);
+        assert_eq!(yasna::construct_der(|w| cert.write(w)), der);
+    }
+
+    #[test]
+    fn parse_v3_cert() {
+        let der = include_bytes!("../tests/data/v3_cert.der");
+        let cert = yasna::parse_der(der, |r| GenericCertificate::decode_ber(r)).unwrap();
+        assert_eq!(cert.tbscert.version, TBS_CERTIFICATE_V3);
+        assert_eq!(yasna::construct_der(|w| cert.write(w)), der);
     }
 }
