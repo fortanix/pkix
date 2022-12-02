@@ -7,6 +7,7 @@ description = "TLS Certificate encoding and decoding helpers."
 keywords = [ "certificate-handling" ]
 categories = ["cryptography"]
 repository = "https://github.com/fortanix/pkix"
+exclude = [".gitignore", ".travis.yml", "bors.toml", "CODE_OF_CONDUCT.md"]
 
 [dependencies]
 yasna = { version = "0.3", features = ["num-bigint", "bit-vec"] }
