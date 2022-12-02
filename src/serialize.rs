@@ -118,3 +118,16 @@ impl DerWrite for TaggedDerValue {
         writer.write_tagged_der(self)
     }
 }
+
+pub trait WriteIa5StringSafe {
+    fn write_ia5_string_safe(self, string: &str);
+}
+
+impl<'a> WriteIa5StringSafe for DERWriter<'a> {
+    fn write_ia5_string_safe(self, string: &str) {
+        // DERWriter::write_ia5_string() panics when the string contains non-ascii characters.
+        // The return type must be (), so the best we can do instead is to filter out non-ascii
+        // characters from the string up front.
+        self.write_ia5_string(&string.replace(|c: char| !c.is_ascii(), ""))
+    }
+}

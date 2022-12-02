@@ -28,6 +28,7 @@ pub const PEM_ENCRYPTED_PRIVATE_KEY: &'static PemGuard = pem_guard!("ENCRYPTED P
 pub const PEM_PRIVATE_KEY: &'static PemGuard = pem_guard!("PRIVATE KEY");
 pub const PEM_PUBLIC_KEY: &'static PemGuard = pem_guard!("PUBLIC KEY");
 pub const PEM_CMS: &'static PemGuard = pem_guard!("CMS");
+pub const PEM_CRL: &'static PemGuard = pem_guard!("X509 CRL");
 
 const BASE64_PEM_WRAP: usize = 64;
 

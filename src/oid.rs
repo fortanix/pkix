@@ -22,6 +22,7 @@ lazy_static! {
 
     // X.509 certificate extensions
     pub static ref subjectAltName: ObjectIdentifier = vec![2, 5, 29, 17].into();
+    pub static ref issuerAltName: ObjectIdentifier = vec![2, 5, 29, 18].into();
     pub static ref basicConstraints: ObjectIdentifier = vec![2, 5, 29, 19].into();
     pub static ref subjectKeyIdentifier: ObjectIdentifier = vec![2, 5, 29, 14].into();
     pub static ref authorityKeyIdentifier: ObjectIdentifier = vec![2, 5, 29, 35].into();
@@ -42,10 +43,21 @@ lazy_static! {
     pub static ref NistP521: ObjectIdentifier = vec![1, 3, 132, 0, 35].into();
     pub static ref ecdsaWithSHA256: ObjectIdentifier = vec![1, 2, 840, 10045, 4, 3, 2].into();
 
+    // Brainpool curves: RFC5639, 4.1
+    pub static ref Brainpool256R1: ObjectIdentifier = vec![1, 3, 36, 3, 3, 2, 8, 1, 1, 7].into();
+    pub static ref Brainpool384R1: ObjectIdentifier = vec![1, 3, 36, 3, 3, 2, 8, 1, 1, 1].into();
+    pub static ref Brainpool512R1: ObjectIdentifier = vec![1, 3, 36, 3, 3, 2, 8, 1, 1, 13].into();
+
     // GOST elliptic curves: RFC4357
     pub static ref Gost256A: ObjectIdentifier = vec![1, 2, 643, 2, 2, 35, 1].into();
     pub static ref Gost256B: ObjectIdentifier = vec![1, 2, 643, 2, 2, 35, 2].into();
     pub static ref Gost256C: ObjectIdentifier = vec![1, 2, 643, 2, 2, 35, 3].into();
+
+    // X25519 identifiers: RFC 8410
+    pub static ref Curve25519: ObjectIdentifier = vec![1, 3, 101, 110].into();
+    pub static ref Curve448: ObjectIdentifier = vec![1, 3, 101, 111].into();
+    pub static ref Ed25519: ObjectIdentifier = vec![1, 3, 101, 112].into();
+    pub static ref Ed448: ObjectIdentifier = vec![1, 3, 101, 113].into();
 
     // CMS: RFC5652
     // named as id-ct-contentInfo in the standard.
@@ -66,6 +78,14 @@ lazy_static! {
     pub static ref aes128_cbc : ObjectIdentifier    = vec![2, 16, 840, 1, 101, 3, 4, 1, 2].into();
     pub static ref RSASSA_PSS : ObjectIdentifier    = vec![1, 2, 840, 113549, 1, 1, 10].into();
     pub static ref messageDigest: ObjectIdentifier  = vec![1, 2, 840, 113549, 1, 9, 4].into();
+
+    // Korean cryptography - 전자서명인증체계 OID 가이드라인 (Object Identifier
+    // Guideline for the Electronic Signature Certification System V1.7)
+    pub static ref Kcdsa:       ObjectIdentifier = vec![1, 0, 14888, 3, 0, 2].into();
+    pub static ref KcdsaSha1:   ObjectIdentifier = vec![1, 2, 410, 200004, 1, 23].into();
+    pub static ref KcdsaSha224: ObjectIdentifier = vec![1, 2, 410, 200004, 1, 40].into();
+    pub static ref KcdsaSha256: ObjectIdentifier = vec![1, 2, 410, 200004, 1, 27].into();
+    pub static ref EcKcdsa:     ObjectIdentifier = vec![1, 0, 14888, 3, 0, 5].into();
 }
 
 lazy_static! {
@@ -177,10 +197,12 @@ lazy_static! {
             [1, 3, 6, 1, 5, 5, 7, 3, 8] => keyUsageTimeStamping,
             [1, 3, 6, 1, 5, 5, 7, 3, 9] => keyUsageOCSPSigning,
 
+            [1, 2, 840, 113549, 1, 1, 5] => sha1withRSA,
             [1, 2, 840, 113549, 1, 1, 14] => sha224withRSA,
             [1, 2, 840, 113549, 1, 1, 11] => sha256withRSA,
             [1, 2, 840, 113549, 1, 1, 12] => sha384withRSA,
             [1, 2, 840, 113549, 1, 1, 13] => sha512withRSA,
+            [1, 2, 840, 10045, 4, 1] => sha1withECDSA,
             [1, 2, 840, 10045, 4, 3, 1] => sha224withECDSA,
             [1, 2, 840, 10045, 4, 3, 2] => sha256withECDSA,
             [1, 2, 840, 10045, 4, 3, 3] => sha384withECDSA,

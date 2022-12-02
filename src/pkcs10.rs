@@ -8,6 +8,7 @@ use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERReader, DERWriter, BERDecod
 use {DerWrite, FromDer};
 use types::*;
 use bit_vec::BitVec;
+use oid;
 
 // RFC2986, 4.1
 
@@ -48,6 +49,10 @@ impl<I: BERDecodable, A: SignatureAlgorithm + BERDecodable, S: BERDecodable> BER
 }
 
 impl<'a, K, A: SignatureAlgorithm, S> CertificationRequest<CertificationRequestInfo<'a, K>, A, S> {
+    pub fn has_attribute(&self, oid: &ObjectIdentifier) -> bool {
+        self.reqinfo.attributes.iter().any(|a| a.oid == *oid)
+    }
+
     pub fn get_attribute<T: FromDer + HasOid>(&self) -> Option<Vec<T>> {
         let oid = T::oid();
 
@@ -82,6 +87,7 @@ impl<'a, K, A: SignatureAlgorithm, S> CertificationRequest<CertificationRequestI
         }
     }
 }
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct CertificationRequestInfo<'e, K> {
     // version: v1
@@ -107,8 +113,8 @@ impl<'e, K: DerWrite> DerWrite for CertificationRequestInfo<'e, K> {
     }
 }
 
-impl<K: BERDecodable> BERDecodable for CertificationRequestInfo<'static, K> {
-    fn decode_ber<'a, 'b>(reader: BERReader<'a, 'b>) -> ASN1Result<Self> {
+impl<'a, K: BERDecodable> BERDecodable for CertificationRequestInfo<'a, K> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
         reader.read_sequence(|r| {
             let version = r.next().read_u8()?;
             if version != CERTIFICATION_REQUEST_INFO_V1 {
@@ -127,5 +133,67 @@ impl<K: BERDecodable> BERDecodable for CertificationRequestInfo<'static, K> {
 
             Ok(CertificationRequestInfo { subject, spki, attributes })
         })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct ExtensionRequest {
+    pub extensions: Extensions,
+}
+
+impl HasOid for ExtensionRequest {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::extensionRequest
+    }
+}
+
+impl DerWrite for ExtensionRequest {
+    fn write(&self, writer: DERWriter) {
+        self.extensions.write(writer)
+    }
+}
+
+impl BERDecodable for ExtensionRequest {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        Ok(ExtensionRequest { extensions: Extensions::decode_ber(reader)? })
+    }
+}
+
+impl ExtensionRequest {
+    pub fn get_requested_extension<T: FromDer + HasOid>(&self) -> Option<T> {
+        self.extensions.get_extension::<T>()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::test_encode_decode;
+
+    #[test]
+    fn extension_request() {
+        let extension_request = ExtensionRequest {
+            extensions: Extensions(vec![
+                Extension {
+                    oid: oid::basicConstraints.clone(),
+                    critical: true,
+                    value: vec![0x30, 0x00],
+                },
+                Extension {
+                    oid: oid::keyUsage.clone(),
+                    critical: true,
+                    value: vec![0x03, 0x03, 0x07, 0x80, 0x00],
+                },
+            ])
+        };
+
+        let der = &[
+            0x30, 0x1f, 0x30, 0x0c, 0x06, 0x03, 0x55, 0x1d,
+            0x13, 0x01, 0x01, 0xff, 0x04, 0x02, 0x30, 0x00,
+            0x30, 0x0f, 0x06, 0x03, 0x55, 0x1d, 0x0f, 0x01,
+            0x01, 0xff, 0x04, 0x05, 0x03, 0x03, 0x07, 0x80,
+            0x00];
+
+        test_encode_decode(&extension_request, der);
     }
 }

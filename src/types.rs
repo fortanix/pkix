@@ -4,15 +4,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERReader, DERWriter, BERDecodable, PCBit};
+use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERReader, DERWriter, BERDecodable, PCBit, Tag};
 use yasna::tags::*;
 pub use yasna::models::{ObjectIdentifier, ParseOidError, TaggedDerValue};
 use std::borrow::Cow;
 use std::str;
 use std::fmt;
+use std::ops::{Deref, DerefMut};
 use chrono::{self, Utc, Datelike, Timelike, TimeZone};
-
-use {DerWrite, oid};
+use {DerWrite, FromDer, oid};
+use crate::serialize::WriteIa5StringSafe;
 
 pub trait HasOid {
     fn oid() -> &'static ObjectIdentifier;
@@ -80,6 +81,297 @@ impl BERDecodable for EcdsaX962<Sha256> {
     }
 }
 
+/// The GeneralName type, as defined in [RFC 5280](https://www.rfc-editor.org/rfc/rfc5280#appendix-A.2).
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum GeneralName<'a> {
+    OtherName(ObjectIdentifier, TaggedDerValue),
+    Rfc822Name(Cow<'a, str>),
+    DnsName(Cow<'a, str>),
+    // x400Address is not supported
+    DirectoryName(Name),
+    // ediPartyName is not supported
+    UniformResourceIdentifier(Cow<'a, str>),
+    IpAddress(Vec<u8>),
+    RegisteredID(ObjectIdentifier),
+}
+
+impl<'a> GeneralName<'a> {
+    const TAG_OTHER_NAME: u64 = 0;
+    const TAG_RFC822_NAME: u64 = 1;
+    const TAG_DNS_NAME: u64 = 2;
+    const TAG_DIRECTORY_NAME: u64 = 4;
+    const TAG_UNIFORM_RESOURCE_IDENTIFIER: u64 = 6;
+    const TAG_IP_ADDRESS: u64 = 7;
+    const TAG_REGISTERED_ID: u64 = 8;
+
+    pub fn is_other_name(&self) -> bool {
+        match *self {
+            GeneralName::OtherName(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_other_name(&self) -> Option<(&ObjectIdentifier, &TaggedDerValue)> {
+        match self {
+            GeneralName::OtherName(oid, tdv) => Some((oid, tdv)),
+            _ => None,
+        }
+    }
+
+    pub fn into_other_name(self) -> Option<(ObjectIdentifier, TaggedDerValue)> {
+        match self {
+            GeneralName::OtherName(oid, tdv) => Some((oid, tdv)),
+            _ => None,
+        }
+    }
+
+    pub fn is_rfc822_name(&self) -> bool {
+        match *self {
+            GeneralName::Rfc822Name(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_rfc822_name(&self) -> Option<&Cow<'a, str>> {
+        match self {
+            GeneralName::Rfc822Name(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn into_rfc822_name(self) -> Option<Cow<'a, str>> {
+        match self {
+            GeneralName::Rfc822Name(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn is_dns_name(&self) -> bool {
+        match *self {
+            GeneralName::DnsName(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_dns_name(&self) -> Option<&Cow<'a, str>> {
+        match self {
+            GeneralName::DnsName(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn into_dns_name(self) -> Option<Cow<'a, str>> {
+        match self {
+            GeneralName::DnsName(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn is_directory_name(&self) -> bool {
+        match *self {
+            GeneralName::DirectoryName(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_directory_name(&self) -> Option<&Name> {
+        match self {
+            GeneralName::DirectoryName(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn into_directory_name(self) -> Option<Name> {
+        match self {
+            GeneralName::DirectoryName(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn is_uniform_resource_identifier(&self) -> bool {
+        match *self {
+            GeneralName::UniformResourceIdentifier(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_uniform_resource_identifier(&self) -> Option<&Cow<'a, str>> {
+        match self {
+            GeneralName::UniformResourceIdentifier(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn into_uniform_resource_identifier(self) -> Option<Cow<'a, str>> {
+        match self {
+            GeneralName::UniformResourceIdentifier(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn is_ip_address(&self) -> bool {
+        match *self {
+            GeneralName::IpAddress(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_ip_address(&self) -> Option<&Vec<u8>> {
+        match self {
+            GeneralName::IpAddress(ip) => Some(ip),
+            _ => None,
+        }
+    }
+
+    pub fn into_ip_address(self) -> Option<Vec<u8>> {
+        match self {
+            GeneralName::IpAddress(ip) => Some(ip),
+            _ => None,
+        }
+    }
+
+    pub fn is_registered_id(&self) -> bool {
+        match *self {
+            GeneralName::RegisteredID(..) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_registered_id(&self) -> Option<&ObjectIdentifier> {
+        match self {
+            GeneralName::RegisteredID(oid) => Some(oid),
+            _ => None,
+        }
+    }
+
+    pub fn into_registered_id(self) -> Option<ObjectIdentifier> {
+        match self {
+            GeneralName::RegisteredID(oid) => Some(oid),
+            _ => None,
+        }
+    }
+}
+
+impl<'a> DerWrite for GeneralName<'a> {
+    fn write(&self, writer: DERWriter) {
+        match self {
+            GeneralName::OtherName(oid, tdv) =>
+                writer.write_tagged_implicit(
+                    Tag::context(Self::TAG_OTHER_NAME),
+                    |w| w.write_sequence(|w| {
+                        oid.write(w.next());
+                        w.next().write_tagged(Tag::context(0), |w| tdv.write(w));
+                    })),
+            GeneralName::Rfc822Name(s) =>
+                writer.write_tagged_implicit(
+                    Tag::context(Self::TAG_RFC822_NAME),
+                    |w| w.write_ia5_string_safe(&s)
+                ),
+            GeneralName::DnsName(s) =>
+                writer.write_tagged_implicit(
+                    Tag::context(Self::TAG_DNS_NAME),
+                    |w| w.write_ia5_string_safe(&s)
+                ),
+            GeneralName::DirectoryName(n) =>
+                // explicit tagging because Name is an untagged CHOICE (X.680-0207 clause 30.6.c)
+                writer.write_tagged(
+                    Tag::context(Self::TAG_DIRECTORY_NAME),
+                    |w| n.write(w)
+                ),
+            GeneralName::UniformResourceIdentifier(s) =>
+                writer.write_tagged_implicit(
+                    Tag::context(Self::TAG_UNIFORM_RESOURCE_IDENTIFIER),
+                    |w| w.write_ia5_string_safe(&s)
+                ),
+            GeneralName::IpAddress(a) =>
+                writer.write_tagged_implicit(
+                    Tag::context(Self::TAG_IP_ADDRESS),
+                    |w| a.write(w)
+                ),
+            GeneralName::RegisteredID(oid) =>
+                writer.write_tagged_implicit(
+                    Tag::context(Self::TAG_REGISTERED_ID),
+                    |w| oid.write(w)
+                ),
+        }
+    }
+}
+
+impl<'a> BERDecodable for GeneralName<'a> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        let tag_number = reader.lookahead_tag()?.tag_number;
+        if tag_number == Self::TAG_DIRECTORY_NAME {
+            // explicit tagging because Name is an untagged CHOICE (X.680-0207 clause 30.6.c)
+            reader.read_tagged(Tag::context(tag_number), |r| {
+                Ok(GeneralName::DirectoryName(Name::decode_ber(r)?))
+            })
+        } else {
+            reader.read_tagged_implicit(Tag::context(tag_number), |r| {
+                match tag_number {
+                    Self::TAG_OTHER_NAME => {
+                        r.read_sequence(|r| {
+                            let oid = ObjectIdentifier::decode_ber(r.next())?;
+                            let value = r.next().read_tagged(Tag::context(0), |r| TaggedDerValue::decode_ber(r))?;
+                            Ok(GeneralName::OtherName(oid, value))
+                        })
+                    },
+                    Self::TAG_RFC822_NAME => Ok(GeneralName::Rfc822Name(r.read_ia5_string()?.into())),
+                    Self::TAG_DNS_NAME => Ok(GeneralName::DnsName(r.read_ia5_string()?.into())),
+                    Self::TAG_UNIFORM_RESOURCE_IDENTIFIER => Ok(GeneralName::UniformResourceIdentifier(r.read_ia5_string()?.into())),
+                    Self::TAG_IP_ADDRESS => Ok(GeneralName::IpAddress(r.read_bytes()?)),
+                    Self::TAG_REGISTERED_ID => Ok(GeneralName::RegisteredID(ObjectIdentifier::decode_ber(r)?)),
+                    _ => Err(ASN1Error::new(ASN1ErrorKind::Invalid)),
+                }
+            })
+        }
+    }
+}
+
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+pub struct GeneralNames<'a>(pub Vec<GeneralName<'a>>);
+
+impl<'a> DerWrite for GeneralNames<'a> {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence_of(|w| {
+            for general_name in &self.0 {
+                general_name.write(w.next())
+            }
+        })
+    }
+}
+
+impl<'a> BERDecodable for GeneralNames<'a> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        Ok(GeneralNames(reader.collect_sequence_of(GeneralName::decode_ber)?))
+    }
+}
+
+impl<'a> Deref for GeneralNames<'a> {
+    type Target = Vec<GeneralName<'a>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> DerefMut for GeneralNames<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'a> From<Vec<GeneralName<'a>>> for GeneralNames<'a> {
+    fn from(names: Vec<GeneralName<'a>>) -> GeneralNames<'a> {
+        GeneralNames(names)
+    }
+}
+
+impl<'a> From<GeneralNames<'a>> for Vec<GeneralName<'a>> {
+    fn from(general_names: GeneralNames<'a>) -> Vec<GeneralName<'a>> {
+        general_names.0
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Name {
@@ -211,6 +503,80 @@ impl From<Vec<u8>> for NameComponent {
     }
 }
 
+impl From<NameComponent> for TaggedDerValue {
+    fn from(nc: NameComponent) -> TaggedDerValue {
+        match nc {
+            NameComponent::Str(str) => TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, str.into_bytes()),
+            NameComponent::Bytes(mut val) => {
+                // mbedTLS does not support OCTET STRING in any name component. It does
+                // support BIT STRING, however, so we always use that. The first byte of
+                // a bit string is the number of unused bits. Since we start from a Vec<u8>,
+                // we always have a multiple of 8 bits and hence no bits are unused.
+                val.insert(0, 0);
+                TaggedDerValue::from_tag_and_bytes(TAG_BITSTRING, val)
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Extensions(pub Vec<Extension>);
+
+impl DerWrite for Extensions {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence_of(|w| {
+            for extension in &self.0 {
+                extension.write(w.next());
+            }
+        });
+    }
+}
+
+impl BERDecodable for Extensions {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        Ok(Extensions(reader.collect_sequence_of(Extension::decode_ber)?))
+    }
+}
+
+impl Deref for Extensions {
+    type Target = Vec<Extension>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Extensions {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl From<Vec<Extension>> for Extensions {
+    fn from(extensions: Vec<Extension>) -> Extensions {
+        Extensions(extensions)
+    }
+}
+
+impl From<Extensions> for Vec<Extension> {
+    fn from(extensions: Extensions) -> Vec<Extension> {
+        extensions.0
+    }
+}
+
+impl Extensions {
+    pub fn get_extension<T: FromDer + HasOid>(&self) -> Option<T> {
+        let oid = T::oid();
+
+        // We reject extensions that appear multiple times.
+        let mut iter = self.0.iter().filter(|a| a.oid == *oid);
+        match (iter.next(), iter.next()) {
+            (Some(attr), None) => T::from_der(&attr.value).ok(),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Extension {
     pub oid: ObjectIdentifier,
@@ -260,12 +626,12 @@ impl<'a> DerWrite for Attribute<'a> {
     }
 }
 
-impl BERDecodable for Attribute<'static> {
-    fn decode_ber<'a, 'b>(reader: BERReader<'a, 'b>) -> ASN1Result<Self> {
+impl<'a> BERDecodable for Attribute<'a> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
         reader.read_sequence(|seq_reader| {
             let oid = ObjectIdentifier::decode_ber(seq_reader.next())?;
 
-            let mut value = Vec::<DerSequence<'static>>::new();
+            let mut value = Vec::new();
             seq_reader.next().read_set_of(|r| {
                 value.push(DerSequence::decode_ber(r)?);
                 Ok(())
@@ -411,8 +777,8 @@ impl<'a> AsRef<[u8]> for DerSequence<'a> {
     }
 }
 
-impl BERDecodable for DerSequence<'static> {
-    fn decode_ber<'a, 'b>(reader: BERReader<'a, 'b>) -> ASN1Result<Self> {
+impl<'a> BERDecodable for DerSequence<'a> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
         Ok(reader.read_der()?.into())
     }
 }
@@ -420,7 +786,7 @@ impl BERDecodable for DerSequence<'static> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serialize::DerWrite;
+    use crate::test::test_encode_decode;
     use yasna;
     use yasna::tags::TAG_UTF8STRING;
 
@@ -439,9 +805,7 @@ mod tests {
                        0x54, 0x65, 0x73, 0x74, 0x20, 0x6e, 0x61, 0x6d, 0x65, 0x31, 0x19, 0x30, 0x17,
                        0x06, 0x03, 0x55, 0x04, 0x0d, 0x0c, 0x10, 0x54, 0x65, 0x73, 0x74, 0x20, 0x64,
                        0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e];
-
-        assert_eq!(yasna::construct_der(|w| name.write(w)), der);
-        assert_eq!(yasna::parse_der(&der, |r| Name::decode_ber(r)).unwrap(), name);
+        test_encode_decode(&name, &der);
     }
 
     #[test]
@@ -469,6 +833,129 @@ mod tests {
     }
 
     #[test]
+    fn extensions() {
+        let extensions = Extensions(vec![
+            Extension {
+                oid: oid::basicConstraints.clone(),
+                critical: true,
+                value: vec![0x30, 0x00],
+            },
+            Extension {
+                oid: oid::keyUsage.clone(),
+                critical: true,
+                value: vec![0x03, 0x03, 0x07, 0x80, 0x00],
+            },
+        ]);
+
+        let der = &[
+            0x30, 0x1f, 0x30, 0x0c, 0x06, 0x03, 0x55, 0x1d,
+            0x13, 0x01, 0x01, 0xff, 0x04, 0x02, 0x30, 0x00,
+            0x30, 0x0f, 0x06, 0x03, 0x55, 0x1d, 0x0f, 0x01,
+            0x01, 0xff, 0x04, 0x05, 0x03, 0x03, 0x07, 0x80,
+            0x00];
+
+        test_encode_decode(&extensions, der);
+    }
+
+    #[test]
+    fn general_name_other_name() {
+        let general_name = GeneralName::OtherName(
+            ObjectIdentifier::new(vec![1,2,3,4]),
+            TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"Test name".to_vec())
+        );
+
+        let der = &[
+            0xa0, 0x12, 0x06, 0x03, 0x2a, 0x03, 0x04, 0xa0,
+            0x0b, 0x0c, 0x09, 0x54, 0x65, 0x73, 0x74, 0x20,
+            0x6e, 0x61, 0x6d, 0x65];
+
+        test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_name_rfc822_name() {
+        let general_name = GeneralName::Rfc822Name("Test name".into());
+        let der = &[
+            0x81, 0x09, 0x54, 0x65, 0x73, 0x74, 0x20, 0x6e,
+            0x61, 0x6d, 0x65];
+
+        test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_name_dns_name() {
+        let general_name = GeneralName::DnsName("Test name".into());
+        let der = &[
+            0x82, 0x09, 0x54, 0x65, 0x73, 0x74, 0x20, 0x6e,
+            0x61, 0x6d, 0x65];
+
+        test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_name_directory_name() {
+        let general_name = GeneralName::DirectoryName(
+            Name {
+                value: vec![
+                    (oid::commonName.clone(),
+                     TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"Test name".to_vec())),
+                    (oid::description.clone(),
+                     TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"Test description".to_vec())),
+                ]
+            }
+        );
+
+        let der = &[
+            0xa4, 0x31, 0x30, 0x2f, 0x31, 0x12, 0x30, 0x10,
+            0x06, 0x03, 0x55, 0x04, 0x03, 0x0c, 0x09, 0x54,
+            0x65, 0x73, 0x74, 0x20, 0x6e, 0x61, 0x6d, 0x65,
+            0x31, 0x19, 0x30, 0x17, 0x06, 0x03, 0x55, 0x04,
+            0x0d, 0x0c, 0x10, 0x54, 0x65, 0x73, 0x74, 0x20,
+            0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74,
+            0x69, 0x6f, 0x6e];
+
+        test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_name_uniform_resource_identifier() {
+        let general_name = GeneralName::UniformResourceIdentifier("Test name".into());
+        let der = &[
+            0x86, 0x09, 0x54, 0x65, 0x73, 0x74, 0x20, 0x6e,
+            0x61, 0x6d, 0x65];
+
+        test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_name_ip_address() {
+        let general_name = GeneralName::IpAddress(vec![127,0,0,1]);
+        let der = &[0x87, 0x04, 0x7f, 0x00, 0x00, 0x01];
+        test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_name_registered_id() {
+        let general_name = GeneralName::RegisteredID(ObjectIdentifier::new(vec![1,2,3,4]));
+        let der = &[0x88, 0x03, 0x2a, 0x03, 0x04];
+        test_encode_decode(&general_name, der);
+    }
+
+    #[test]
+    fn general_names() {
+        let general_names = GeneralNames(vec![
+            GeneralName::IpAddress(vec![127,0,0,1]),
+            GeneralName::RegisteredID(ObjectIdentifier::new(vec![1,2,3,4]))
+        ]);
+
+        let der = &[
+            0x30, 0x0b, 0x87, 0x04, 0x7f, 0x00, 0x00, 0x01,
+            0x88, 0x03, 0x2a, 0x03, 0x04];
+
+        test_encode_decode(&general_names, der);
+    }
+
+    #[test]
     fn attribute() {
         let attr = Attribute {
             oid: oid::extensionRequest.clone(),
@@ -482,8 +969,7 @@ mod tests {
                        0x31, 0x10, 0x04, 0x06, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x21, 0x04, 0x06, 0x48,
                        0x65, 0x6c, 0x6c, 0x6f, 0x21];
 
-        assert_eq!(yasna::construct_der(|w| attr.write(w)), der);
-        assert_eq!(yasna::parse_der(&der, |r| Attribute::decode_ber(r)).unwrap(), attr);
+        test_encode_decode(&attr, &der);
     }
 
     #[test]
@@ -493,7 +979,6 @@ mod tests {
         let der = vec![0x17, 0x0d, 0x31, 0x37, 0x30, 0x35, 0x31, 0x39, 0x31, 0x32, 0x33, 0x34,
                        0x35, 0x36, 0x5a];
 
-        assert_eq!(yasna::construct_der(|w| datetime.write(w)), der);
-        assert_eq!(yasna::parse_der(&der, |r| DateTime::decode_ber(r)).unwrap(), datetime);
+        test_encode_decode(&datetime, &der);
     }
 }
