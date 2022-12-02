@@ -115,8 +115,8 @@ pub fn cert(get_random_printable_string: fn(usize) -> Vec<u8>)
                 issuer:
                     vec![(oid::dnQualifier.clone(),
                           TaggedDerValue::from_tag_and_bytes(TAG_PRINTABLESTRING, get_random_printable_string(42)))].into(),
-                validity_notbefore: DateTime::new(1970, 1, 1, 0, 0, 0),
-                validity_notafter: DateTime::new(1970, 1, 1, 0, 0, 0),
+                validity_notbefore: DateTime::new(1970, 1, 1, 0, 0, 0).unwrap(),
+                validity_notafter: DateTime::new(1970, 1, 1, 0, 0, 0).unwrap(),
                 subject:
                     vec![(oid::description.clone(),
                           TaggedDerValue::from_tag_and_bytes(TAG_UTF8STRING, b"Known keys only".to_vec())),
