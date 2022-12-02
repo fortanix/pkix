@@ -7,12 +7,13 @@
 extern crate pkix;
 
 use pkix::pem::{der_to_pem, PEM_CERTIFICATE};
+use pkix::x509::TBS_CERTIFICATE_V3;
 
 #[path="../tests/fakes.rs"]
 pub mod fakes;
 
 fn main() {
-    let cert = fakes::cert_der(fakes::random_printable_string);
+    let cert = fakes::cert_der(fakes::random_printable_string, TBS_CERTIFICATE_V3);
 
     println!("{}", der_to_pem(&cert, PEM_CERTIFICATE));
 }
