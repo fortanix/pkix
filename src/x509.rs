@@ -157,6 +157,65 @@ impl<S: BERDecodable + Integer, A: BERDecodable + SignatureAlgorithm, K: BERDeco
     }
 }
 
+/// BasicConstraints type as defined in RFC 5280.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct BasicConstraints {
+    ca: bool,
+    path_len_constraint: Option<u64>,
+}
+
+impl BasicConstraints {
+    pub fn ca(path_len_constraint: Option<u64>) -> Self {
+        BasicConstraints { ca: true, path_len_constraint }
+    }
+
+    pub fn no_ca() -> Self {
+        BasicConstraints { ca: false, path_len_constraint: None }
+    }
+
+    /// Returns the value of the `cA` field, as defined in RFC 5280.
+    pub fn is_ca(&self) -> bool {
+        self.ca
+    }
+
+    /// Returns the value of the `pathLenConstraint` field, as defined in RFC 5280.
+    ///
+    /// Note that the RFC states that the `pathLenConstraint` field is meaningful only if the
+    /// `cA` boolean is asserted. It is up to the users of this method to enforce that statement.
+    pub fn path_len_constraint(&self) -> Option<u64> {
+        self.path_len_constraint
+    }
+}
+
+impl HasOid for BasicConstraints {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::basicConstraints
+    }
+}
+
+impl DerWrite for BasicConstraints {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|writer| {
+            if self.ca { // do not write field if `ca` is equal to default value `false`
+                writer.next().write_bool(true);
+            }
+            if let Some(path_len) = self.path_len_constraint {
+                writer.next().write_u64(path_len);
+            }
+        });
+    }
+}
+
+impl BERDecodable for BasicConstraints {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        reader.read_sequence(|r| {
+            let ca = r.read_default(false, |r| r.read_bool())?;
+            let path_len_constraint = r.read_optional(|r| r.read_u64())?;
+            Ok(BasicConstraints { ca, path_len_constraint })
+        })
+    }
+}
+
 #[deprecated(since="0.1.3", note="use `SubjectAltName` instead")]
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DnsAltNames<'a> {
@@ -250,6 +309,21 @@ impl<'a> BERDecodable for IssuerAltName<'a> {
 mod tests {
     use super::*;
     use test::test_encode_decode;
+
+    #[test]
+    fn basic_constraints() {
+        let test_values = vec![
+            (BasicConstraints { ca: false, path_len_constraint: None    }, vec![0x30, 0x00]),
+            (BasicConstraints { ca: true,  path_len_constraint: None    }, vec![0x30, 0x03, 0x01, 0x01, 0xFF]),
+            (BasicConstraints { ca: true,  path_len_constraint: Some(4) }, vec![0x30, 0x06, 0x01, 0x01, 0xFF, 0x02, 0x01, 0x04]),
+            // Not valid according to RFC 5280, but can still be decoded:
+            (BasicConstraints { ca: false,  path_len_constraint: Some(4) }, vec![0x30, 0x03, 0x02, 0x01, 0x04]),
+        ];
+
+        for (basic_constraint, der) in test_values {
+            test_encode_decode(&basic_constraint, &der);
+        }
+    }
 
     #[test]
     #[allow(deprecated)]
