@@ -8,7 +8,10 @@
 
 pub extern crate yasna;
 pub extern crate num_bigint;
+#[cfg(target_feature = "avx2")]
 extern crate b64_ct;
+#[cfg(not(target_feature = "avx2"))]
+extern crate base64;
 extern crate num_integer;
 pub extern crate bit_vec;
 #[macro_use]
