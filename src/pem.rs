@@ -42,8 +42,6 @@ lazy_static!{
         line_length: Some(BASE64_PEM_WRAP),
     };
 }
-//#[cfg(not(target_feature = "avx2"))]
-
 
 /// Convert PEM to DER. If `guard` is specified (e.g. as PEM_CERTIFICATE), then the guardlines are
 /// verified to match the expected string. Otherwise, the guardlines are verified to generally have
