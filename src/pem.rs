@@ -4,6 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#[cfg(target_feature = "avx2")]
 use b64_ct::{FromBase64, ToBase64};
 
 /// Type of the various `PEM_*` constants supplied to `pem_to_der` / `der_to_pem`.
@@ -32,6 +33,7 @@ pub const PEM_CRL: &'static PemGuard = pem_guard!("X509 CRL");
 
 const BASE64_PEM_WRAP: usize = 64;
 
+#[cfg(target_feature = "avx2")]
 lazy_static!{
     static ref BASE64_PEM: b64_ct::Config = b64_ct::Config {
         char_set: b64_ct::CharacterSet::Standard,
@@ -40,6 +42,8 @@ lazy_static!{
         line_length: Some(BASE64_PEM_WRAP),
     };
 }
+//#[cfg(not(target_feature = "avx2"))]
+
 
 /// Convert PEM to DER. If `guard` is specified (e.g. as PEM_CERTIFICATE), then the guardlines are
 /// verified to match the expected string. Otherwise, the guardlines are verified to generally have
@@ -75,7 +79,10 @@ pub fn pem_to_der(pem: &str, guard: Option<&PemGuard>) -> Option<Vec<u8>> {
         .next().unwrap().0;
     let body_end = pem.rmatch_indices(&end).next().unwrap().0;
 
-    pem[body_start..body_end].from_base64().ok()
+    #[cfg(target_feature = "avx2")]
+    return pem[body_start..body_end].from_base64().ok();
+    #[cfg(not(target_feature = "avx2"))]
+    return base64::decode(pem[body_start..body_end].replace("\n", "").as_bytes()).ok();
 }
 
 /// Convert DER to PEM. The guardlines use the identifying string chosen by `guard`
@@ -86,8 +93,16 @@ pub fn der_to_pem<T: ?Sized + AsRef<[u8]>>(der: &T, guard: &PemGuard) -> String 
     pem.push_str(guard.begin);
     pem.push('\n');
     if der.as_ref().len() > 0 {
-        pem.push_str(&der.as_ref().to_base64(*BASE64_PEM));
-        pem.push('\n');
+        #[cfg(target_feature = "avx2")]
+        {
+            pem.push_str(&der.as_ref().to_base64(*BASE64_PEM));
+            pem.push('\n');
+        }
+        #[cfg(not(target_feature = "avx2"))]
+        for chunk in base64::encode(der.as_ref()).as_bytes().chunks(BASE64_PEM_WRAP) {
+            pem.push_str(std::str::from_utf8(chunk).unwrap());
+            pem.push('\n');
+        }
     }
     pem.push_str(guard.end);
     pem.push('\n');
