@@ -4,6 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use bitflags::bitflags;
 use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERReader, DERWriter, BERDecodable, Tag};
 use num_integer::Integer;
 use num_bigint::BigUint;
@@ -13,6 +14,8 @@ use oid;
 
 use DerWrite;
 use types::*;
+
+use crate::ToDer;
 
 pub type RsaPkcs15TbsCertificate<'a> = TbsCertificate<BigUint, RsaPkcs15<Sha256>, DerSequence<'a>>;
 pub type RsaPkcs15Certificate<'a> = Certificate<RsaPkcs15TbsCertificate<'a>, RsaPkcs15<Sha256>, BitVec>;
@@ -154,6 +157,132 @@ impl<S: BERDecodable + Integer, A: BERDecodable + SignatureAlgorithm, K: BERDeco
             Ok(TbsCertificate { version, serial, sigalg, issuer, validity_notbefore, validity_notafter,
                                 subject, spki, extensions })
         })
+    }
+}
+
+/// X.509 `SubjectPublicKeyInfo` (SPKI) as defined in [RFC 5280 § 4.1.2.7].
+///
+/// ASN.1 structure containing an [`AlgorithmIdentifier`] and public key
+/// data in an algorithm specific format.
+///
+/// ```text
+///    SubjectPublicKeyInfo  ::=  SEQUENCE  {
+///         algorithm            AlgorithmIdentifier,
+///         subjectPublicKey     BIT STRING  }
+/// ```
+///
+/// [RFC 5280 § 4.1.2.7]: https://tools.ietf.org/html/rfc5280#section-4.1.2.7
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct SubjectPublicKeyInfo<A: SignatureAlgorithm = DerSequence<'static>> {
+    /// X.509 [`AlgorithmIdentifier`] for the public key type
+    pub algorithm: A,
+
+    /// Public key data
+    pub subject_public_key: BitVec,
+}
+
+impl<A: SignatureAlgorithm + DerWrite> DerWrite for SubjectPublicKeyInfo<A> {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|writer| {
+            self.algorithm.write(writer.next());
+            self.subject_public_key.write(writer.next());
+        });
+    }
+}
+
+impl<A: SignatureAlgorithm + BERDecodable> BERDecodable for SubjectPublicKeyInfo<A> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        reader.read_sequence(|reader| {
+            let algorithm = A::decode_ber(reader.next())?;
+            let subject_public_key = BitVec::decode_ber(reader.next())?;
+            Ok(SubjectPublicKeyInfo {
+                algorithm,
+                subject_public_key,
+            })
+        })
+    }
+}
+
+/// Certificate `Version` as defined in [RFC 5280 Section 4.1].
+///
+/// ```text
+/// Version  ::=  INTEGER  {  v1(0), v2(1), v3(2)  }
+/// ```
+///
+/// [RFC 5280 Section 4.1]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.1
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum Version {
+    V1 = 1,
+    V2 = 2,
+    V3 = 3,
+}
+
+impl DerWrite for Version {
+    fn write(&self, writer: DERWriter) {
+        ((*self).clone() as u32).write(writer)
+    }
+}
+
+impl BERDecodable for Version {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        let num = reader.read_u32()?;
+        match num {
+            1 => Ok(Version::V1),
+            2 => Ok(Version::V2),
+            3 => Ok(Version::V3),
+            _ => Err(ASN1Error::new(ASN1ErrorKind::Invalid)),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct AttributeTypeAndValue {
+    pub oid: ObjectIdentifier,
+    pub value: TaggedDerValue,
+}
+
+impl DerWrite for AttributeTypeAndValue {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|w| {
+            self.oid.write(w.next());
+            self.value.write(w.next());
+        });
+    }
+}
+
+impl BERDecodable for AttributeTypeAndValue {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        reader.read_sequence(|r| {
+            let oid = ObjectIdentifier::decode_ber(r.next())?;
+            let value = TaggedDerValue::decode_ber(r.next())?;
+            Ok(Self { oid, value })
+        })
+    }
+}
+
+/// This trait can be used to indicate the value for the `critical` bit for
+/// types that can be encoded as X.509 `Extension`.
+pub trait IsCritical {
+    fn is_critical(&self) -> bool;
+}
+
+pub trait ToExtension {
+    fn to_extension(&self) -> Extension;
+}
+
+impl<T: HasOid + IsCritical + ToDer> ToExtension for T {
+    fn to_extension(&self) -> Extension {
+        Extension {
+            oid: T::oid().clone(),
+            critical: self.is_critical(),
+            value: self.to_der(),
+        }
+    }
+}
+
+impl IsCritical for BasicConstraints {
+    fn is_critical(&self) -> bool {
+        true
     }
 }
 
@@ -305,6 +434,64 @@ impl<'a> BERDecodable for IssuerAltName<'a> {
     }
 }
 
+
+/// Max number of meaningful bits in the key usage bit string.
+const KEY_USAGE_MAX_NUM_BITS: usize = 9;
+
+bitflags! {
+    #[repr(transparent)]
+    pub struct KeyUsage: u16 {
+        const DIGITAL_SIGNATURE = 0x8000;
+        const NON_REPUDIATION   = 0x4000;
+        const KEY_ENCIPHERMENT  = 0x2000;
+        const DATA_ENCIPHERMENT = 0x1000;
+        const KEY_AGREEMENT     = 0x0800;
+        const KEY_CERT_SIGN     = 0x0400;
+        const CRL_SIGN          = 0x0200;
+        const ENCIPHER_ONLY     = 0x0100;
+        const DECIPHER_ONLY     = 0x0080;
+    }
+}
+
+impl HasOid for KeyUsage {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::keyUsage
+    }
+}
+
+impl DerWrite for KeyUsage {
+    fn write(&self, writer: DERWriter) {
+        let bytes = self.bits().to_be_bytes();
+        let mut bit_vec = BitVec::from_bytes(&bytes);
+        while bit_vec.iter().last() == Some(false) {
+            bit_vec.pop();
+        }
+        writer.write_bitvec(&bit_vec);
+    }
+}
+
+impl BERDecodable for KeyUsage {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        let mut bit_vec = reader.read_bitvec()?;
+        if bit_vec.len() > KEY_USAGE_MAX_NUM_BITS {
+            bit_vec.split_off(KEY_USAGE_MAX_NUM_BITS);
+        }
+        assert!(KEY_USAGE_MAX_NUM_BITS <= u16::BITS as usize);
+        let mut array = [0u8; 2];
+        let mut bit_bytes = bit_vec.to_bytes();
+        bit_bytes.resize(2, 0);
+        array.copy_from_slice(&bit_bytes[..2]);
+        let flags = u16::from_be_bytes(array);
+        Ok(KeyUsage::from_bits_truncate(flags))
+    }
+}
+
+impl IsCritical for KeyUsage {
+    fn is_critical(&self) -> bool {
+        true
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -380,5 +567,86 @@ mod tests {
         let cert = yasna::parse_der(der, |r| GenericCertificate::decode_ber(r)).unwrap();
         assert_eq!(cert.tbscert.version, TBS_CERTIFICATE_V3);
         assert_eq!(yasna::construct_der(|w| cert.write(w)), der);
+    }
+}
+
+
+#[cfg(test)]
+mod key_usage_tests {
+    use crate::yasna::tags::TAG_BITSTRING;
+    use crate::{FromDer, ToDer};
+
+    use super::*;
+
+    /// This tests "When DER encoding a named bit list, trailing zeros MUST be
+    /// omitted." from https://datatracker.ietf.org/doc/html/rfc5280#appendix-B
+    #[test]
+    fn key_usage_can_decode_encode_short() {
+        let der = [3, 2, 1, 6];
+        let ret = KeyUsage::from_der(&der).expect("can decode short");
+        assert_eq!(ret, (KeyUsage::KEY_CERT_SIGN | KeyUsage::CRL_SIGN), "KeyUsage not equal");
+        assert_eq!(&der[..], &ret.to_der(), "KeyUsage DER not equal");
+    }
+
+    #[test]
+    fn key_usage_bits() {
+        struct Test {
+            input: KeyUsage,
+            expected_bits: Vec<u8>,
+        }
+        let tests = vec![
+            Test {
+                input: KeyUsage::DIGITAL_SIGNATURE
+                    | KeyUsage::DATA_ENCIPHERMENT
+                    | KeyUsage::KEY_AGREEMENT
+                    | KeyUsage::KEY_CERT_SIGN,
+                expected_bits: vec![
+                    TAG_BITSTRING.tag_number as u8,
+                    0x2,        // The length is 2 octets. 1 for the number of unused bits and 1 for the actual data.
+                    0b00000010, // number of unused bits:2
+                    0b10011100, // content with 2 padded zero
+                ],
+            },
+            Test {
+                input: KeyUsage::all(),
+                expected_bits: vec![
+                    TAG_BITSTRING.tag_number as u8,
+                    0x3,        // The length is 3 octets. 1 for the number of unused bits and 2 for the actual data.
+                    0b00000111, // number of unused bits:7
+                    0b11111111,
+                    0b10000000, // content with 7 padded zero
+                ],
+            },
+            Test {
+                input: KeyUsage::DECIPHER_ONLY,
+                expected_bits: vec![
+                    TAG_BITSTRING.tag_number as u8,
+                    0x3,        // The length is 3 octets. 1 for the number of unused bits and 2 for the actual data.
+                    0b00000111, // number of unused bits:7
+                    0b00000000,
+                    0b10000000, // content with 7 padded zero
+                ],
+            },
+            Test {
+                input: KeyUsage::CRL_SIGN | KeyUsage::ENCIPHER_ONLY,
+                expected_bits: vec![
+                    TAG_BITSTRING.tag_number as u8,
+                    0x2,        // The length is 2 octets. 1 for the number of unused bits and 1 for the actual data.
+                    0b00000000, // number of unused bits:0
+                    0b00000011, // content with 0 padded zero
+                ],
+            },
+        ];
+
+        for t in tests {
+            let der = t.input.to_der();
+            assert_eq!(
+                &der, &t.expected_bits,
+                "{:?}, {:02x?} != {:02x?}",
+                t.input, &der, &t.expected_bits
+            );
+            let echo = KeyUsage::from_der(&der).unwrap();
+            assert_eq!(echo, t.input);
+        }
     }
 }

@@ -15,6 +15,9 @@ use chrono::{self, Utc, Datelike, Timelike, TimeZone};
 use {DerWrite, FromDer, oid};
 use crate::serialize::WriteIa5StringSafe;
 
+/// Maximum length as a `u32` (256 MiB).
+const MAX_U32: u32 = 0xfff_ffff;
+
 pub trait HasOid {
     fn oid() -> &'static ObjectIdentifier;
 }
@@ -785,6 +788,99 @@ impl<'a> AsRef<[u8]> for DerSequence<'a> {
 impl<'a> BERDecodable for DerSequence<'a> {
     fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
         Ok(reader.read_der()?.into())
+    }
+}
+
+/// A wrapper to ensure DateTime is always encoded as GeneralizedTime
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct GeneralizedTime(pub DateTime);
+
+impl DerWrite for GeneralizedTime {
+    fn write(&self, writer: DERWriter) {
+        let chrono_time: chrono::DateTime<chrono::offset::Utc> = self.0.clone().into();
+        let t = format!(
+            "{:04}{:02}{:02}{:02}{:02}{:02}Z",
+            chrono_time.year(),
+            chrono_time.month(),
+            chrono_time.day(),
+            chrono_time.hour(),
+            chrono_time.minute(),
+            chrono_time.second()
+        );
+        writer.write_tagged_implicit(TAG_GENERALIZEDTIME, |w| t.as_bytes().write(w));
+    }
+}
+
+impl BERDecodable for GeneralizedTime {
+    /// This code only accepts dates including seconds and in UTC "Z" time zone.
+    /// These restrictions are imposed by RFC5280.
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        Ok(GeneralizedTime(DateTime::decode_ber(reader)?))
+    }
+}
+
+/// ASN.1 `OCTET STRING` type: owned form..
+///
+/// Octet strings represent contiguous sequences of octets, a.k.a. bytes.
+///
+/// This type provides the same functionality as [`OctetStringRef`] but owns
+/// the backing data.
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct OctetString {
+    /// Bitstring represented as a slice of bytes.
+    inner: Vec<u8>,
+}
+
+impl OctetString {
+    /// Maximum length currently supported: 256 MiB
+    pub const MAX: u32 = MAX_U32;
+
+    /// Create a new ASN.1 `OCTET STRING`.
+    pub fn new(bytes: impl Into<Vec<u8>>) -> ASN1Result<Self> {
+        let inner: Vec<u8> = bytes.into();
+        if inner.len() > Self::MAX as usize {
+            Err(ASN1Error::new(ASN1ErrorKind::IntegerOverflow))
+        } else {
+            Ok(Self { inner })
+        }
+    }
+
+    /// Borrow the inner byte slice.
+    pub fn as_bytes(&self) -> &[u8] {
+        self.inner.as_slice()
+    }
+
+    /// Take ownership of the octet string.
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.inner
+    }
+
+    /// Get the length of the inner byte slice.
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Is the inner byte slice empty?
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+}
+
+impl DerWrite for OctetString {
+    fn write(&self, writer: DERWriter) {
+        writer.write_bytes(&self.inner);
+    }
+}
+
+impl BERDecodable for OctetString {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        OctetString::new(reader.read_bytes()?)
+    }
+}
+
+impl AsRef<[u8]> for OctetString {
+    fn as_ref(&self) -> &[u8] {
+        &self.inner
     }
 }
 

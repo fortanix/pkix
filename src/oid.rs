@@ -16,9 +16,13 @@ lazy_static! {
     pub static ref sha256WithRSAEncryption: ObjectIdentifier = vec![1, 2, 840, 113549, 1, 1, 11].into();
 
     // X.500 attribute types
-    pub static ref commonName: ObjectIdentifier = vec![2, 5, 4, 3].into();
-    pub static ref description: ObjectIdentifier = vec![2, 5, 4, 13].into();
-    pub static ref dnQualifier: ObjectIdentifier = vec![2, 5, 4, 46].into();
+    pub static ref commonName: ObjectIdentifier          = vec![2, 5, 4, 3].into();
+    pub static ref countryName: ObjectIdentifier         = vec![2, 5, 4, 6].into();
+    pub static ref localityName: ObjectIdentifier        = vec![2, 5, 4, 7].into();
+    pub static ref stateOrProvinceName: ObjectIdentifier = vec![2, 5, 4, 8].into();
+    pub static ref organizationName: ObjectIdentifier    = vec![2, 5, 4, 10].into();
+    pub static ref description: ObjectIdentifier         = vec![2, 5, 4, 13].into();
+    pub static ref dnQualifier: ObjectIdentifier         = vec![2, 5, 4, 46].into();
 
     // X.509 certificate extensions
     pub static ref subjectAltName: ObjectIdentifier = vec![2, 5, 29, 17].into();

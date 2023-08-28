@@ -8,6 +8,7 @@
 
 pub extern crate yasna;
 pub extern crate num_bigint;
+extern crate bitflags;
 extern crate b64_ct;
 extern crate num_integer;
 pub extern crate bit_vec;
@@ -24,6 +25,8 @@ pub mod types;
 pub mod x509;
 pub mod pkcs10;
 pub mod pem;
+pub mod cmpv2;
+pub mod crmf;
 mod serialize;
 mod deserialize;
 
