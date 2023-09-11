@@ -331,6 +331,13 @@ impl<'a> BERDecodable for GeneralName<'a> {
 }
 
 
+/// GeneralNames as defined in [RFC 5280 Section 4.2.1.6].
+///
+/// ```text
+/// GeneralNames ::= SEQUENCE SIZE (1..MAX) OF GeneralName
+/// ```
+///
+/// [RFC 5280 Section 4.2.1.6]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.6
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct GeneralNames<'a>(pub Vec<GeneralName<'a>>);
 

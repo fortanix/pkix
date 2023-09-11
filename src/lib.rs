@@ -27,6 +27,7 @@ pub mod pkcs10;
 pub mod pem;
 pub mod cmpv2;
 pub mod crmf;
+pub mod rfc3281;
 mod serialize;
 mod deserialize;
 

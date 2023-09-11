@@ -492,6 +492,45 @@ impl IsCritical for KeyUsage {
     }
 }
 
+/// SubjectDirectoryAttributes as defined in [RFC 5280 Section 4.2.1.8].
+///
+/// ```text
+/// SubjectDirectoryAttributes ::= SEQUENCE SIZE (1..MAX) OF AttributeSet
+/// ```
+///
+/// [RFC 5280 Section 4.2.1.8]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.8
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct SubjectDirectoryAttributes<'a>(pub Vec<Attribute<'a>>);
+
+impl HasOid for SubjectDirectoryAttributes<'_> {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::subjectDirectoryAttributes
+    }
+}
+
+impl IsCritical for SubjectDirectoryAttributes<'_> {
+    fn is_critical(&self) -> bool {
+        false
+    }
+}
+
+impl DerWrite for SubjectDirectoryAttributes<'_> {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence_of(|w| {
+            for attr in &self.0 {
+                attr.write(w.next())
+            }
+        })
+    }
+}
+
+impl BERDecodable for SubjectDirectoryAttributes<'_> {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        Ok(SubjectDirectoryAttributes(reader.collect_sequence_of(Attribute::decode_ber)?))
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -573,10 +612,14 @@ mod tests {
 
 #[cfg(test)]
 mod key_usage_tests {
+    use crate::oid::{attributeTypeRole, keyAttestationAuthorityRole};
+    use crate::rfc3281::Role;
     use crate::yasna::tags::TAG_BITSTRING;
     use crate::{FromDer, ToDer};
 
     use super::*;
+
+    use b64_ct::{ToBase64, STANDARD};
 
     /// This tests "When DER encoding a named bit list, trailing zeros MUST be
     /// omitted." from https://datatracker.ietf.org/doc/html/rfc5280#appendix-B
@@ -648,5 +691,60 @@ mod key_usage_tests {
             let echo = KeyUsage::from_der(&der).unwrap();
             assert_eq!(echo, t.input);
         }
+    }
+
+    const EXAMPLE_DER_WITH_ROLE: &[u8] = &[
+        0x30, 0x19, 0x30, 0x17, 0x06, 0x03, 0x55, 0x04, 0x48, 0x31, 0x10, 0x30, 0x0E, 0xA1, 0x0C, 0x88, 0x0A, 0x2B, 0x06, 0x01,
+        0x04, 0x01, 0x83, 0x84, 0x1A, 0x07, 0x01,
+    ];
+
+    #[test]
+    fn subject_directory_attributes_decode_encode_with_role() {
+        let example_role = Role {
+            role_authority: None,
+            role_name: GeneralName::RegisteredID(keyAttestationAuthorityRole.clone()),
+        };
+        let ret = SubjectDirectoryAttributes::from_der(EXAMPLE_DER_WITH_ROLE).expect("can decode");
+        let attr = ret.0.first().expect("has one attribute");
+        assert_eq!(&attr.oid, &*attributeTypeRole);
+        assert_eq!(attr.value.first().unwrap().value, example_role.to_der());
+        assert_eq!(ret.to_der(), EXAMPLE_DER_WITH_ROLE);
+    }
+
+    #[test]
+    fn subject_directory_attributes_construct() {
+        let mut attributes = vec![];
+        let utf8_string = String::from("a utf8 string");
+        attributes.push(Attribute {
+            oid: ObjectIdentifier::from_slice(&[1, 2, 840, 113549, 1, 1]),
+            value: vec![DerSequence::from_der(
+                &TaggedDerValue::from_tag_and_bytes(yasna::tags::TAG_UTF8STRING, utf8_string.clone().into_bytes())
+                    .to_der(),
+            )
+            .unwrap()],
+        });
+        let example = SubjectDirectoryAttributes(attributes);
+        let der = example.to_der();
+        let example_decode = SubjectDirectoryAttributes::from_der(&der).expect("from der");
+        assert_eq!(example_decode, example);
+    }
+
+    #[test]
+    fn subject_directory_attributes_construct_with_role() {
+        let mut attributes = vec![];
+        let example_role = Role {
+            role_authority: None,
+            role_name: GeneralName::RegisteredID(keyAttestationAuthorityRole.clone()),
+        };
+        attributes.push(Attribute {
+            oid: attributeTypeRole.clone(),
+            value: vec![DerSequence::from_der(&example_role.to_der()).unwrap()],
+        });
+        let example = SubjectDirectoryAttributes(attributes);
+        let der = example.to_der();
+        assert_eq!(der, EXAMPLE_DER_WITH_ROLE);
+        println!("{}", der.to_base64(STANDARD));
+        let example_decode = SubjectDirectoryAttributes::from_der(&der).expect("from der");
+        assert_eq!(example_decode, example);
     }
 }
