@@ -759,9 +759,12 @@ macro_rules! derive_sequence {
 
 #[macro_export]
 macro_rules! define_version {
-    ($name:ident {
+    (
+        $(#[$outer:meta])*
+        $name:ident {
         $($ver:ident = $n:expr),*,
     }) => {
+        $(#[$outer])*
         #[derive(Clone, Debug, Eq, PartialEq, Hash)]
         pub enum $name {
             $($ver = $n),*,
