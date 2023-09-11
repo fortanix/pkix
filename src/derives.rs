@@ -400,7 +400,7 @@ macro_rules! derive_set_of {
 #[macro_export]
 macro_rules! derive_sequence {
     ($name:ident {
-         $($item:ident : [$tag:tt] $tag_type:ident : $item_type:ty),*$(,)*
+         $($item:ident : [$tag:tt] $tag_type:ident $optional:ident: $item_type:ty),*$(,)*
     }) => {
         #[derive(Clone, Debug, Eq, PartialEq, Hash)]
         #[allow(non_camel_case_types, non_snake_case)]
@@ -413,7 +413,7 @@ macro_rules! derive_sequence {
                 writer.write_sequence(|writer| {
                     derive_sequence! {
                         $name deriveDerWr(self, writer.next()) {
-                             $($item : [$tag] $tag_type  : $item_type),*,
+                             $($item : [$tag] $tag_type $optional : $item_type),*,
                         }
                     }
                 })
@@ -424,7 +424,7 @@ macro_rules! derive_sequence {
                 reader.read_sequence(|reader| {
                     derive_sequence! {
                         $name deriveBerRd(reader.next()) {
-                             $($item : [$tag] $tag_type : $item_type),*,
+                             $($item : [$tag] $tag_type $optional : $item_type),*,
                         }
                     }
                     let obj = $name {
@@ -435,18 +435,29 @@ macro_rules! derive_sequence {
             }
         }
     };
+
+    ($name:ident {
+        $($item:ident : [$tag:tt] $tag_type:ident : $item_type:ty),*$(,)*
+    }) => {
+            derive_sequence! {
+                $name {
+                    $($item : [$tag] $tag_type REQUIRED : $item_type),*,
+                }
+            }
+    };
+
     ($name:ident {
          $($item:ident : $item_type:ty),*$(,)*
     }) => {
           derive_sequence! {
               $name {
-                  $($item : [_] UNTAGGED : $item_type),*,
+                  $($item : [_] UNTAGGED REQUIRED : $item_type),*,
               }
           }
     };
 
     ($name:ident : Subsequence {
-         $($item:ident : [$tag:tt] $tag_type:ident : $item_type:ty),*$(,)*
+         $($item:ident : [$tag:tt] $tag_type:ident $optional:ident : $item_type:ty),*$(,)*
     }) => {
         #[derive(Clone, Debug, Eq, PartialEq, Hash)]
         #[allow(non_camel_case_types, non_snake_case)]
@@ -458,7 +469,7 @@ macro_rules! derive_sequence {
            fn write(&self, writer: &mut DERWriterSeq) {
                     derive_sequence! {
                         $name deriveDerWr(self, writer.next()) {
-                             $($item : [$tag] $tag_type  : $item_type),*,
+                             $($item : [$tag] $tag_type $optional : $item_type),*,
                         }
                     }
            }
@@ -467,7 +478,7 @@ macro_rules! derive_sequence {
            fn decode_ber<'a, 'b>(reader: &mut BERReaderSeq<'a, 'b>) -> ASN1Result<Self> {
                     derive_sequence! {
                         $name deriveBerRd(reader.next()) {
-                             $($item : [$tag] $tag_type : $item_type),*,
+                             $($item : [$tag] $tag_type $optional : $item_type),*,
                         }
                     }
                     let obj = $name {
@@ -477,16 +488,42 @@ macro_rules! derive_sequence {
            }
         }
     };
+
+    ($name:ident : Subsequence {
+        $($item:ident : [$tag:tt] $tag_type:ident : $item_type:ty),*$(,)*
+    }) => {
+            derive_sequence! {
+                $name :Subsequence {
+                    $($item : [$tag] $tag_type REQUIRED : $item_type),*,
+                }
+            }
+    };
+
     ($name:ident : Subsequence {
          $($item:ident : $item_type:ty),*$(,)*
     }) => {
           derive_sequence! {
               $name :Subsequence {
-                  $($item : [_] UNTAGGED : $item_type),*,
+                  $($item : [_] UNTAGGED REQUIRED : $item_type),*,
               }
           }
     };
 
+    ($name:ident deriveDerWr($written:ident, $writer:expr) {
+        $item:ident : [$tag:tt] $tag_type:ident REQUIRED : $item_type:ty,
+        $($tail:tt)*
+    }) => {
+                derive_sequence! {
+                    $name deriveDerWr($written, $writer) {
+                        $item : [$tag] $tag_type : $item_type,
+                    }
+                }
+                derive_sequence! {
+                    $name deriveDerWr($written, $writer) {
+                        $($tail)*
+                    }
+                }
+    };
 
     ($name:ident deriveDerWr($written:ident, $writer:expr) { }) => {};
     ($name:ident deriveDerWr($written:ident, $writer:expr) {
@@ -502,6 +539,7 @@ macro_rules! derive_sequence {
                     }
                 }
     };
+
     ($name:ident deriveDerWr($written:ident, $writer:expr) {
           $item:ident : [$tag:tt] IMPLICIT : $item_type:ty,
           $($tail:tt)*
@@ -515,6 +553,7 @@ macro_rules! derive_sequence {
                     }
                 }
     };
+
     ($name:ident deriveDerWr($written:ident, $writer:expr) {
           $item:ident : [$tag:tt] UNTAGGED : $item_type:ty,
           $($tail:tt)*
@@ -525,6 +564,22 @@ macro_rules! derive_sequence {
                 $($tail)*
             }
         }
+    };
+
+    ($name:ident deriveBerRd($reader:expr) {
+        $item:ident : [$tag:tt] $tag_type:ident REQUIRED : $item_type:ty,
+        $($tail:tt)*
+    }) => {
+                derive_sequence! {
+                    $name deriveBerRd($reader) {
+                        $item : [$tag] $tag_type : $item_type,
+                    }
+                }
+                derive_sequence! {
+                    $name deriveBerRd($reader) {
+                        $($tail)*
+                    }
+                }
     };
 
     ($name:ident deriveBerRd($reader:expr) { }) => {};
@@ -543,6 +598,7 @@ macro_rules! derive_sequence {
                     }
                 }
     };
+
     ($name:ident deriveBerRd($reader:expr) {
           $item:ident : [$tag:tt] IMPLICIT : $item_type:ty,
           $($tail:tt)*
@@ -557,6 +613,7 @@ macro_rules! derive_sequence {
                   }
                }
     };
+
     ($name:ident deriveBerRd($reader:expr) {
           $item:ident : [$tag:tt] UNTAGGED : $item_type:ty,
           $($tail:tt)*
