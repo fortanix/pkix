@@ -398,6 +398,49 @@ macro_rules! derive_set_of {
 }
 
 #[macro_export]
+macro_rules! derive_sequence_of {
+    ($(#[$outer:meta])* $elem_name:ty => $sequence_name:ident) => {
+        $(#[$outer])*
+        #[derive(Clone, Debug, Eq, PartialEq, Hash, Default)]
+        #[allow(non_camel_case_types, non_snake_case)]
+        pub struct $sequence_name {
+            pub elements: Vec<$elem_name>,
+        }
+        impl DerWrite for $sequence_name {
+            fn write(&self, writer: DERWriter) {
+                writer.write_sequence_of(|w| {
+                    for element in &self.elements {
+                        element.write(w.next());
+                    }
+                })
+            }
+        }
+
+        impl BERDecodable for $sequence_name {
+            fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+                Ok($sequence_name(reader.collect_sequence_of($elem_name::decode_ber)?))
+            }
+        }
+        impl From<Vec<$elem_name>> for $sequence_name {
+            fn from(elements: Vec<$elem_name>) -> $sequence_name {
+                $sequence_name { elements }
+            }
+        }
+        impl $sequence_name {
+            #[allow(unused)]
+            pub fn push<T: Into<$elem_name>>(&mut self, elem: T) {
+                self.elements.push(elem.into());
+            }
+        }
+        impl From<$sequence_name> for Vec<$elem_name> {
+            fn from(sequence_name : $sequence_name) -> Vec<$elem_name> {
+                sequence_name.elements
+            }
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! derive_sequence {
     (
         $(#[$outer:meta])*
