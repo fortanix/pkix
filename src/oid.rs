@@ -23,6 +23,7 @@ lazy_static! {
     pub static ref organizationName: ObjectIdentifier    = vec![2, 5, 4, 10].into();
     pub static ref description: ObjectIdentifier         = vec![2, 5, 4, 13].into();
     pub static ref dnQualifier: ObjectIdentifier         = vec![2, 5, 4, 46].into();
+    pub static ref attributeTypeRole: ObjectIdentifier = vec![2, 5, 4, 72].into();
 
     // X.509 certificate extensions
     pub static ref subjectAltName: ObjectIdentifier = vec![2, 5, 29, 17].into();
@@ -31,6 +32,7 @@ lazy_static! {
     pub static ref subjectKeyIdentifier: ObjectIdentifier = vec![2, 5, 29, 14].into();
     pub static ref authorityKeyIdentifier: ObjectIdentifier = vec![2, 5, 29, 35].into();
     pub static ref keyUsage: ObjectIdentifier = vec![2, 5, 29, 15].into();
+    pub static ref subjectDirectoryAttributes: ObjectIdentifier = vec![2, 5, 29, 9].into();
 
     // PKCS #9 attributes
     pub static ref extensionRequest: ObjectIdentifier = vec![1, 2, 840, 113549, 1, 9, 14].into();
@@ -90,6 +92,8 @@ lazy_static! {
     pub static ref KcdsaSha224: ObjectIdentifier = vec![1, 2, 410, 200004, 1, 40].into();
     pub static ref KcdsaSha256: ObjectIdentifier = vec![1, 2, 410, 200004, 1, 27].into();
     pub static ref EcKcdsa:     ObjectIdentifier = vec![1, 0, 14888, 3, 0, 5].into();
+
+    pub static ref keyAttestationAuthorityRole: ObjectIdentifier = vec![1, 3, 6, 1, 4, 1, 49690, 7, 1].into();
 }
 
 lazy_static! {
