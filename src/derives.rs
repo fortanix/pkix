@@ -399,9 +399,12 @@ macro_rules! derive_set_of {
 
 #[macro_export]
 macro_rules! derive_sequence {
-    ($name:ident {
+    (
+        $(#[$outer:meta])*
+        $name:ident {
          $($item:ident : [$tag:tt] $tag_type:ident $optional:ident: $item_type:ty),*$(,)*
     }) => {
+        $(#[$outer])*
         #[derive(Clone, Debug, Eq, PartialEq, Hash)]
         #[allow(non_camel_case_types, non_snake_case)]
         pub struct $name {
@@ -436,29 +439,38 @@ macro_rules! derive_sequence {
         }
     };
 
-    ($name:ident {
+    (
+        $(#[$outer:meta])*
+        $name:ident {
         $($item:ident : [$tag:tt] $tag_type:ident : $item_type:ty),*$(,)*
     }) => {
             derive_sequence! {
+                $(#[$outer])*
                 $name {
                     $($item : [$tag] $tag_type REQUIRED : $item_type),*,
                 }
             }
     };
 
-    ($name:ident {
+    (
+        $(#[$outer:meta])*
+        $name:ident {
          $($item:ident : $item_type:ty),*$(,)*
     }) => {
-          derive_sequence! {
-              $name {
-                  $($item : [_] UNTAGGED REQUIRED : $item_type),*,
-              }
-          }
+            derive_sequence! {
+                $(#[$outer])*
+                $name {
+                    $($item : [_] UNTAGGED REQUIRED : $item_type),*,
+                }
+            }
     };
 
-    ($name:ident : Subsequence {
+    (
+        $(#[$outer:meta])*
+        $name:ident : Subsequence {
          $($item:ident : [$tag:tt] $tag_type:ident $optional:ident : $item_type:ty),*$(,)*
     }) => {
+        $(#[$outer])*
         #[derive(Clone, Debug, Eq, PartialEq, Hash)]
         #[allow(non_camel_case_types, non_snake_case)]
         pub struct $name {
@@ -489,23 +501,29 @@ macro_rules! derive_sequence {
         }
     };
 
-    ($name:ident : Subsequence {
+    (
+        $(#[$outer:meta])*
+        $name:ident : Subsequence {
         $($item:ident : [$tag:tt] $tag_type:ident : $item_type:ty),*$(,)*
     }) => {
             derive_sequence! {
+                $(#[$outer])*
                 $name :Subsequence {
                     $($item : [$tag] $tag_type REQUIRED : $item_type),*,
                 }
             }
     };
 
-    ($name:ident : Subsequence {
+    (
+        $(#[$outer:meta])*
+        $name:ident : Subsequence {
          $($item:ident : $item_type:ty),*$(,)*
     }) => {
           derive_sequence! {
-              $name :Subsequence {
-                  $($item : [_] UNTAGGED REQUIRED : $item_type),*,
-              }
+                $(#[$outer])*
+                $name :Subsequence {
+                    $($item : [_] UNTAGGED REQUIRED : $item_type),*,
+                }
           }
     };
 
