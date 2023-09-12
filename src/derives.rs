@@ -442,17 +442,17 @@ macro_rules! derive_sequence_of {
 macro_rules! derive_sequence {
     (
         $(#[$outer:meta])*
-        $name:ident {
+        $name:ident$(<$name_lt:lifetime>)? {
          $($item:ident : [$tag:tt] $tag_type:ident $optional:ident: $item_type:ty),*$(,)*
     }) => {
         $(#[$outer])*
         #[derive(Clone, Debug, Eq, PartialEq, Hash)]
         #[allow(non_camel_case_types, non_snake_case)]
-        pub struct $name {
+        pub struct $name$(<$name_lt>)? {
             $(pub $item : $item_type),*,
         }
 
-        impl DerWrite for $name {
+        impl$(<$name_lt>)? DerWrite for $name$(<$name_lt>)? {
             fn write(&self, writer: DERWriter) {
                 writer.write_sequence(|writer| {
                     derive_sequence! {
@@ -463,7 +463,7 @@ macro_rules! derive_sequence {
                 })
              }
         }
-        impl BERDecodable for $name {
+        impl$(<$name_lt>)? BERDecodable for $name$(<$name_lt>)? {
             fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
                 reader.read_sequence(|reader| {
                     derive_sequence! {
@@ -482,12 +482,12 @@ macro_rules! derive_sequence {
 
     (
         $(#[$outer:meta])*
-        $name:ident {
+        $name:ident$(<$name_lt:lifetime>)? {
         $($item:ident : [$tag:tt] $tag_type:ident : $item_type:ty),*$(,)*
     }) => {
             derive_sequence! {
                 $(#[$outer])*
-                $name {
+                $name$(<$name_lt>)? {
                     $($item : [$tag] $tag_type REQUIRED : $item_type),*,
                 }
             }
@@ -495,12 +495,12 @@ macro_rules! derive_sequence {
 
     (
         $(#[$outer:meta])*
-        $name:ident {
+        $name:ident$(<$name_lt:lifetime>)? {
          $($item:ident : $item_type:ty),*$(,)*
     }) => {
             derive_sequence! {
                 $(#[$outer])*
-                $name {
+                $name$(<$name_lt>)? {
                     $($item : [_] UNTAGGED REQUIRED : $item_type),*,
                 }
             }
