@@ -111,9 +111,9 @@ pub struct CertTemplate {
     pub extensions: Option<Extensions>,
 }
 
-/// TODO: fields not needed now are not fully implemented, track ticket:
+/// TODO: fields not needed now are not fully implemented
 pub type SerialNumber = BigUint;
-/// TODO: fields not needed now are not fully implemented, track ticket:
+/// TODO: fields not needed now are not fully implemented
 pub type Validity = DerAnyOwned;
 
 impl CertTemplate {
