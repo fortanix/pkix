@@ -399,7 +399,7 @@ macro_rules! derive_set_of {
 
 #[macro_export]
 macro_rules! derive_sequence_of {
-    ($(#[$outer:meta])* $elem_name:ty => $sequence_name:ident) => {
+    ($(#[$outer:meta])* $elem_name:ty => $sequence_name:ty) => {
         $(#[$outer])*
         #[derive(Clone, Debug, Eq, PartialEq, Hash, Default)]
         #[allow(non_camel_case_types, non_snake_case)]
