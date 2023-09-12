@@ -11,29 +11,14 @@ use yasna::{ASN1Result, BERDecodable, BERReader, DERWriter};
 
 use crate::{x509::AttributeTypeAndValue, DerWrite};
 
-/// The `Controls` type is defined in [RFC 4211 Section 6].
-///
-/// ```text
-///   Controls  ::= SEQUENCE SIZE(1..MAX) OF SingleAttribute
-///                     {{RegControlSet}}
-/// ```
-///
-/// [RFC 4211 Section 6]: https://www.rfc-editor.org/rfc/rfc4211#section-6
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Controls(pub Vec<AttributeTypeAndValue>);
-
-impl DerWrite for Controls {
-    fn write(&self, writer: DERWriter) {
-        writer.write_sequence_of(|w| {
-            for control in &self.0 {
-                control.write(w.next())
-            }
-        });
-    }
-}
-
-impl BERDecodable for Controls {
-    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        Ok(Controls(reader.collect_sequence_of(AttributeTypeAndValue::decode_ber)?))
-    }
+derive_sequence_of!{
+    /// The `Controls` type is defined in [RFC 4211 Section 6].
+    ///
+    /// ```text
+    ///   Controls  ::= SEQUENCE SIZE(1..MAX) OF SingleAttribute
+    ///                     {{RegControlSet}}
+    /// ```
+    ///
+    /// [RFC 4211 Section 6]: https://www.rfc-editor.org/rfc/rfc4211#section-6
+    AttributeTypeAndValue => Controls
 }

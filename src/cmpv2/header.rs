@@ -219,5 +219,20 @@ impl<A: SignatureAlgorithm + BERDecodable> BERDecodable for PkiHeader<'_, A> {
     }
 }
 
+define_version! {
+    /// The `PKIHeader` type defined in [RFC 4210 Section 5.1.1] features an inline
+    /// INTEGER definition that is implemented as the Pvno enum.
+    ///
+    /// ```text
+    ///     pvno                INTEGER     { cmp1999(1), cmp2000(2) },
+    /// ```
+    ///
+    /// [RFC 4210 Section 5.1.1]: https://datatracker.ietf.org/doc/html/rfc4210#section-5.1.1
+    Pvno {
+        Cmp1999 = 1,
+        Cmp2000 = 2,
+    }
+}
+
 /// TODO: not implemented yet
 pub type PkiFreeText = DerSequence<'static>;

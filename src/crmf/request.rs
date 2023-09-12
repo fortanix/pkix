@@ -19,139 +19,65 @@ use crate::{
 
 use super::{controls::Controls, pop::ProofOfPossession};
 
-/// The `CertReqMessages` type is defined in [RFC 4211 Section 3].
-///
-/// ```text
-///   CertReqMessages ::= SEQUENCE SIZE (1..MAX) OF CertReqMsg
-/// ```
-///
-/// [RFC 4211 Section 3]: https://www.rfc-editor.org/rfc/rfc4211#section-3
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct CertReqMessages(pub Vec<CertReqMsg>);
+derive_sequence_of!{
+    /// The `CertReqMessages` type is defined in [RFC 4211 Section 3].
+    ///
+    /// ```text
+    ///   CertReqMessages ::= SEQUENCE SIZE (1..MAX) OF CertReqMsg
+    /// ```
+    ///
+    /// [RFC 4211 Section 3]: https://www.rfc-editor.org/rfc/rfc4211#section-3
+    CertReqMsg => CertReqMessages
+}
 
-impl DerWrite for CertReqMessages {
-    fn write(&self, writer: DERWriter) {
-        writer.write_sequence_of(|w| {
-            for cert_req_msg in &self.0 {
-                cert_req_msg.write(w.next())
-            }
-        })
+derive_sequence! {
+    /// X.501 `AttributeTypeAndValue` as defined in [RFC 5280 Appendix A.1].
+    ///
+    /// ```text
+    /// AttributeTypeAndValue ::= SEQUENCE {
+    ///   type     AttributeType,
+    ///   value    AttributeValue
+    /// }
+    /// ```
+    ///
+    /// [RFC 5280 Appendix A.1]: https://datatracker.ietf.org/doc/html/rfc5280#appendix-A.1
+    CertReqMsg {
+        cert_req: [_] UNTAGGED REQUIRED: CertRequest,
+        popo:     [_] UNTAGGED OPTIONAL: Option<ProofOfPossession>,
+        reg_info: [_] UNTAGGED OPTIONAL: Option<AttributeSeq>,
     }
 }
 
-impl BERDecodable for CertReqMessages {
-    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        Ok(CertReqMessages(reader.collect_sequence_of(CertReqMsg::decode_ber)?))
+derive_sequence! {
+    /// The `CertRequest` type is defined in [RFC 4211 Section 5].
+    ///
+    /// ```text
+    ///   CertRequest ::= SEQUENCE {
+    ///       certReqId     INTEGER,
+    ///       -- ID for matching request and reply
+    ///       certTemplate  CertTemplate,
+    ///       -- Selected fields of cert to be issued
+    ///       controls      Controls OPTIONAL }
+    ///       -- Attributes affecting issuance
+    /// ```
+    ///
+    /// [RFC 4211 Section 5]: https://www.rfc-editor.org/rfc/rfc4211#section-5
+    CertRequest {
+        cert_req_id:   [_] UNTAGGED REQUIRED: u32,
+        cert_template: [_] UNTAGGED REQUIRED: CertTemplate,
+        controls:      [_] UNTAGGED OPTIONAL: Option<Controls>,
     }
 }
 
-/// The `CertReqMsg` type is defined in [RFC 4211 Section 3].
-///
-/// ```text
-///   CertReqMsg ::= SEQUENCE {
-///       certReq   CertRequest,
-///       popo       ProofOfPossession  OPTIONAL,
-///       -- content depends upon key type
-///       regInfo   SEQUENCE SIZE(1..MAX) OF
-///           SingleAttribute{{RegInfoSet}} OPTIONAL }
-/// ```
-///
-/// [RFC 4211 Section 3]: https://www.rfc-editor.org/rfc/rfc4211#section-3
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct CertReqMsg {
-    pub cert_req: CertRequest,
-    pub popo: Option<ProofOfPossession>,
-    pub reg_info: Option<AttributeSeq>,
+derive_sequence_of!{
+    /// AttributeSeq corresponds to the type that is inlined in the CertReqMsg
+    /// definition for the regInfo field, as shown below:
+    /// ```text
+    ///       regInfo   SEQUENCE SIZE(1..MAX) OF
+    ///           SingleAttribute{{RegInfoSet}} OPTIONAL }
+    /// ```
+    Attribute<'static> => AttributeSeq
 }
-
-impl DerWrite for CertReqMsg {
-    fn write(&self, writer: DERWriter) {
-        writer.write_sequence(|writer| {
-            self.cert_req.write(writer.next());
-            if let Some(popo) = self.popo.as_ref() {
-                popo.write(writer.next());
-            };
-            if let Some(reg_info) = self.reg_info.as_ref() {
-                writer.next().write_sequence_of(|w| {
-                    for attr in reg_info {
-                        attr.write(w.next())
-                    }
-                })
-            }
-        })
-    }
-}
-
-impl BERDecodable for CertReqMsg {
-    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        reader.read_sequence(|reader| {
-            let cert_req = <CertRequest as BERDecodable>::decode_ber(reader.next())?;
-            let popo: Option<ProofOfPossession> =
-                reader.read_optional(|reader| <ProofOfPossession as BERDecodable>::decode_ber(reader))?;
-            let reg_info = reader.read_optional(|reader| reader.collect_sequence_of(Attribute::decode_ber))?;
-            Ok(CertReqMsg {
-                cert_req,
-                popo,
-                reg_info,
-            })
-        })
-    }
-}
-
-/// The `CertRequest` type is defined in [RFC 4211 Section 5].
-///
-/// ```text
-///   CertRequest ::= SEQUENCE {
-///       certReqId     INTEGER,
-///       -- ID for matching request and reply
-///       certTemplate  CertTemplate,
-///       -- Selected fields of cert to be issued
-///       controls      Controls OPTIONAL }
-///       -- Attributes affecting issuance
-/// ```
-///
-/// [RFC 4211 Section 5]: https://www.rfc-editor.org/rfc/rfc4211#section-5
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct CertRequest {
-    pub cert_req_id: BigInt,
-    pub cert_template: CertTemplate,
-    pub controls: Option<Controls>,
-}
-
-impl DerWrite for CertRequest {
-    fn write(&self, writer: DERWriter) {
-        writer.write_sequence(|writer| {
-            self.cert_req_id.write(writer.next());
-            self.cert_template.write(writer.next());
-            if let Some(controls) = self.controls.as_ref() {
-                controls.write(writer.next());
-            }
-        })
-    }
-}
-
-impl BERDecodable for CertRequest {
-    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        reader.read_sequence(|reader| {
-            let cert_req_id = <BigInt as BERDecodable>::decode_ber(reader.next())?;
-            let cert_template = <CertTemplate as BERDecodable>::decode_ber(reader.next())?;
-            let controls = reader.read_optional(|r| Controls::decode_ber(r))?;
-            Ok(CertRequest {
-                cert_req_id,
-                cert_template,
-                controls,
-            })
-        })
-    }
-}
-
-/// AttributeSeq corresponds to the type that is inlined in the CertReqMsg
-/// definition for the regInfo field, as shown below:
-/// ```text
-///       regInfo   SEQUENCE SIZE(1..MAX) OF
-///           SingleAttribute{{RegInfoSet}} OPTIONAL }
-/// ```
-pub type AttributeSeq = Vec<Attribute<'static>>;
 
 /// The `CertTemplate` type is defined in [RFC 4211 Section 5].
 ///
