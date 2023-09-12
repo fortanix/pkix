@@ -92,8 +92,6 @@ lazy_static! {
     pub static ref KcdsaSha224: ObjectIdentifier = vec![1, 2, 410, 200004, 1, 40].into();
     pub static ref KcdsaSha256: ObjectIdentifier = vec![1, 2, 410, 200004, 1, 27].into();
     pub static ref EcKcdsa:     ObjectIdentifier = vec![1, 0, 14888, 3, 0, 5].into();
-
-    pub static ref keyAttestationAuthorityRole: ObjectIdentifier = vec![1, 3, 6, 1, 4, 1, 49690, 7, 1].into();
 }
 
 lazy_static! {

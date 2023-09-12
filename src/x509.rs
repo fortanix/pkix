@@ -612,7 +612,7 @@ mod tests {
 
 #[cfg(test)]
 mod key_usage_tests {
-    use crate::oid::{attributeTypeRole, keyAttestationAuthorityRole};
+    use crate::oid::attributeTypeRole;
     use crate::rfc3281::Role;
     use crate::yasna::tags::TAG_BITSTRING;
     use crate::{FromDer, ToDer};
@@ -694,15 +694,16 @@ mod key_usage_tests {
     }
 
     const EXAMPLE_DER_WITH_ROLE: &[u8] = &[
-        0x30, 0x19, 0x30, 0x17, 0x06, 0x03, 0x55, 0x04, 0x48, 0x31, 0x10, 0x30, 0x0E, 0xA1, 0x0C, 0x88, 0x0A, 0x2B, 0x06, 0x01,
-        0x04, 0x01, 0x83, 0x84, 0x1A, 0x07, 0x01,
+        0x30, 0x17, 0x30, 0x15, 0x06, 0x03, 0x55, 0x04, 0x48, 0x31, 0x0E, 0x30, 0x0C, 0xA1, 0x0A, 0x88, 0x08, 0x2A, 0x03, 0x04,
+        0x05, 0x06, 0x07, 0x08, 0x09,
     ];
 
     #[test]
     fn subject_directory_attributes_decode_encode_with_role() {
+        let example_role_oid = ObjectIdentifier::from_slice(&[1, 2, 3, 4, 5, 6, 7, 8, 9]);
         let example_role = Role {
             role_authority: None,
-            role_name: GeneralName::RegisteredID(keyAttestationAuthorityRole.clone()),
+            role_name: GeneralName::RegisteredID(example_role_oid),
         };
         let ret = SubjectDirectoryAttributes::from_der(EXAMPLE_DER_WITH_ROLE).expect("can decode");
         let attr = ret.0.first().expect("has one attribute");
@@ -732,9 +733,10 @@ mod key_usage_tests {
     #[test]
     fn subject_directory_attributes_construct_with_role() {
         let mut attributes = vec![];
+        let example_role_oid = ObjectIdentifier::from_slice(&[1, 2, 3, 4, 5, 6, 7, 8, 9]);
         let example_role = Role {
             role_authority: None,
-            role_name: GeneralName::RegisteredID(keyAttestationAuthorityRole.clone()),
+            role_name: GeneralName::RegisteredID(example_role_oid),
         };
         attributes.push(Attribute {
             oid: attributeTypeRole.clone(),

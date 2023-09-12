@@ -76,13 +76,12 @@ mod tests {
     use crate::{FromDer, ToDer};
 
     use super::*;
-    use crate::oid::keyAttestationAuthorityRole;
 
     #[test]
     fn role_construct() {
         let example = Role {
             role_authority: None,
-            role_name: GeneralName::RegisteredID(keyAttestationAuthorityRole.clone()),
+            role_name: GeneralName::RegisteredID(vec![1, 2, 3, 4, 5, 6, 7, 8, 9].into()),
         };
         let der = example.to_der();
         println!("{}", der.to_base64(STANDARD));
