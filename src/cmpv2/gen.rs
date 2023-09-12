@@ -7,7 +7,7 @@
 
 //! General purpose message-related types
 
-use crate::types::DerSequence;
+use crate::types::DerAnyOwned;
 
 /// TODO: not implemented yet
-pub type GeneralInfo = DerSequence<'static>;
+pub type GeneralInfo = DerAnyOwned;

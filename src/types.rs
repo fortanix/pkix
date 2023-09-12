@@ -894,6 +894,22 @@ impl AsRef<[u8]> for OctetString {
     }
 }
 
+derive_sequence!{
+    /// X.509 `AlgorithmIdentifier` as defined in [RFC 5280 Section 4.1.1.2].
+    ///
+    /// ```text
+    /// AlgorithmIdentifier  ::=  SEQUENCE  {
+    ///      algorithm               OBJECT IDENTIFIER,
+    ///      parameters              ANY DEFINED BY algorithm OPTIONAL  }
+    /// ```
+    ///
+    /// [RFC 5280 Section 4.1.1.2]: https://tools.ietf.org/html/rfc5280#section-4.1.1.2
+    AlgorithmIdentifierOwned {
+        oid: [_] UNTAGGED REQUIRED: ObjectIdentifier,
+        parameters: [_] UNTAGGED OPTIONAL: Option<DerAnyOwned>
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

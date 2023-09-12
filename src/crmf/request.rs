@@ -12,7 +12,7 @@ use num_bigint::{BigInt, BigUint};
 use yasna::{ASN1Result, BERDecodable, BERReader, DERWriter, Tag};
 
 use crate::{
-    types::{Attribute, DerSequence, Extensions, Name, SignatureAlgorithm},
+    types::{Attribute, Extensions, Name, DerAnyOwned, AlgorithmIdentifierOwned},
     x509::{SubjectPublicKeyInfo, Version},
     DerWrite,
 };
@@ -63,7 +63,7 @@ derive_sequence! {
     ///
     /// [RFC 4211 Section 5]: https://www.rfc-editor.org/rfc/rfc4211#section-5
     CertRequest {
-        cert_req_id:   [_] UNTAGGED REQUIRED: u32,
+        cert_req_id:   [_] UNTAGGED REQUIRED: BigInt,
         cert_template: [_] UNTAGGED REQUIRED: CertTemplate,
         controls:      [_] UNTAGGED OPTIONAL: Option<Controls>,
     }
@@ -98,10 +98,10 @@ derive_sequence_of!{
 ///
 /// [RFC 4211 Section 5]: https://www.rfc-editor.org/rfc/rfc4211#section-5
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct CertTemplate<A: SignatureAlgorithm = DerSequence<'static>> {
+pub struct CertTemplate {
     pub version: Option<Version>,
     pub serial_number: Option<SerialNumber>,
-    pub signing_alg: Option<A>,
+    pub signing_alg: Option<AlgorithmIdentifierOwned>,
     pub issuer: Option<Name>,
     pub validity: Option<Validity>,
     pub subject: Option<Name>,
@@ -114,9 +114,9 @@ pub struct CertTemplate<A: SignatureAlgorithm = DerSequence<'static>> {
 /// TODO: fields not needed now are not fully implemented, track ticket:
 pub type SerialNumber = BigUint;
 /// TODO: fields not needed now are not fully implemented, track ticket:
-pub type Validity = DerSequence<'static>;
+pub type Validity = DerAnyOwned;
 
-impl<A: SignatureAlgorithm> CertTemplate<A> {
+impl CertTemplate {
     /// IMPLICIT TAG (rfc4211#appendix-B)
     const TAG_VERSION: u64 = 0;
     /// IMPLICIT TAG (rfc4211#appendix-B)
@@ -139,7 +139,7 @@ impl<A: SignatureAlgorithm> CertTemplate<A> {
     const TAG_EXTENSIONS: u64 = 9;
 }
 
-impl<A: SignatureAlgorithm + DerWrite> DerWrite for CertTemplate<A> {
+impl DerWrite for CertTemplate {
     fn write(&self, writer: DERWriter) {
         writer.write_sequence(|writer| {
             if let Some(version) = self.version.as_ref() {
@@ -196,8 +196,8 @@ impl<A: SignatureAlgorithm + DerWrite> DerWrite for CertTemplate<A> {
         });
     }
 }
-impl<A: SignatureAlgorithm + BERDecodable> BERDecodable for CertTemplate<A> {
-    fn decode_ber(reader: BERReader<'_, '_>) -> ASN1Result<Self> {
+impl BERDecodable for CertTemplate {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
         reader.read_sequence(|reader| {
             let version = reader.read_optional(|r| {
                 r.read_tagged_implicit(Tag::context(Self::TAG_VERSION), |reader| Version::decode_ber(reader))
@@ -207,8 +207,8 @@ impl<A: SignatureAlgorithm + BERDecodable> BERDecodable for CertTemplate<A> {
                     SerialNumber::decode_ber(reader)
                 })
             })?;
-            let signature = reader
-                .read_optional(|r| r.read_tagged_implicit(Tag::context(Self::TAG_SIGNING_ALG), |reader| A::decode_ber(reader)))?;
+            let signing_alg = reader
+                .read_optional(|r| r.read_tagged_implicit(Tag::context(Self::TAG_SIGNING_ALG), |reader| AlgorithmIdentifierOwned::decode_ber(reader)))?;
             let issuer =
                 reader.read_optional(|r| r.read_tagged(Tag::context(Self::TAG_ISSUER), |reader| Name::decode_ber(reader)))?;
             let validity = reader.read_optional(|r| {
@@ -235,7 +235,7 @@ impl<A: SignatureAlgorithm + BERDecodable> BERDecodable for CertTemplate<A> {
             Ok(CertTemplate {
                 version,
                 serial_number,
-                signing_alg: signature,
+                signing_alg,
                 issuer,
                 validity,
                 subject,

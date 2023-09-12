@@ -10,7 +10,7 @@
 use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERDecodable, BERReader, DERWriter, Tag};
 
 use crate::{
-    types::{DerSequence, GeneralName, GeneralizedTime, OctetString, SignatureAlgorithm},
+    types::{GeneralName, GeneralizedTime, OctetString, AlgorithmIdentifierOwned, DerAnyOwned},
     DerWrite,
 };
 
@@ -57,12 +57,12 @@ use super::gen::GeneralInfo;
 ///
 /// [RFC 4210 Section 5.1.1]: https://datatracker.ietf.org/doc/html/rfc4210#section-5.1.1
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct PkiHeader<'a, A: SignatureAlgorithm = DerSequence<'static>> {
+pub struct PkiHeader<'a> {
     pub pvno: Pvno,
     pub sender: GeneralName<'a>,
     pub recipient: GeneralName<'a>,
     pub message_time: Option<GeneralizedTime>,
-    pub protection_alg: Option<A>,
+    pub protection_alg: Option<AlgorithmIdentifierOwned>,
     pub sender_kid: Option<OctetString>,
     pub recip_kid: Option<OctetString>,
     pub trans_id: Option<OctetString>,
@@ -72,7 +72,7 @@ pub struct PkiHeader<'a, A: SignatureAlgorithm = DerSequence<'static>> {
     pub general_info: Option<GeneralInfo>,
 }
 
-impl<A: SignatureAlgorithm> PkiHeader<'_, A> {
+impl PkiHeader<'_> {
     /// EXPLICIT TAG (rfc4210#appendix-F)
     const TAG_MESSAGE_TIME: u64 = 0;
     /// EXPLICIT TAG (rfc4210#appendix-F)
@@ -93,7 +93,7 @@ impl<A: SignatureAlgorithm> PkiHeader<'_, A> {
     const TAG_GENERAL_INFO: u64 = 8;
 }
 
-impl<A: SignatureAlgorithm + DerWrite> DerWrite for PkiHeader<'_, A> {
+impl DerWrite for PkiHeader<'_> {
     fn write(&self, writer: DERWriter) {
         writer.write_sequence(|writer| {
             self.pvno.write(writer.next());
@@ -148,7 +148,7 @@ impl<A: SignatureAlgorithm + DerWrite> DerWrite for PkiHeader<'_, A> {
     }
 }
 
-impl<A: SignatureAlgorithm + BERDecodable> BERDecodable for PkiHeader<'_, A> {
+impl BERDecodable for PkiHeader<'_> {
     fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
         reader.read_sequence(|reader| {
             let pvno = <Pvno as BERDecodable>::decode_ber(reader.next())?;
@@ -159,9 +159,9 @@ impl<A: SignatureAlgorithm + BERDecodable> BERDecodable for PkiHeader<'_, A> {
                     <GeneralizedTime as BERDecodable>::decode_ber(reader)
                 })
             })?;
-            let protection_alg: Option<A> = reader.read_optional(|reader| {
+            let protection_alg: Option<AlgorithmIdentifierOwned> = reader.read_optional(|reader| {
                 reader.read_tagged(Tag::context(Self::TAG_PROTECTION_ALG), |reader| {
-                    <A as BERDecodable>::decode_ber(reader)
+                    <AlgorithmIdentifierOwned as BERDecodable>::decode_ber(reader)
                 })
             })?;
             let sender_kid: Option<OctetString> = reader.read_optional(|reader| {
@@ -235,4 +235,4 @@ define_version! {
 }
 
 /// TODO: not implemented yet
-pub type PkiFreeText = DerSequence<'static>;
+pub type PkiFreeText = DerAnyOwned;
