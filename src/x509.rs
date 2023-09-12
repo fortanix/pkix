@@ -203,60 +203,35 @@ impl<A: SignatureAlgorithm + BERDecodable> BERDecodable for SubjectPublicKeyInfo
     }
 }
 
-/// Certificate `Version` as defined in [RFC 5280 Section 4.1].
-///
-/// ```text
-/// Version  ::=  INTEGER  {  v1(0), v2(1), v3(2)  }
-/// ```
-///
-/// [RFC 5280 Section 4.1]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.1
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum Version {
-    V1 = 1,
-    V2 = 2,
-    V3 = 3,
-}
-
-impl DerWrite for Version {
-    fn write(&self, writer: DERWriter) {
-        ((*self).clone() as u32).write(writer)
+define_version! {
+    /// Certificate `Version` as defined in [RFC 5280 Section 4.1].
+    ///
+    /// ```text
+    /// Version  ::=  INTEGER  {  v1(0), v2(1), v3(2)  }
+    /// ```
+    ///
+    /// [RFC 5280 Section 4.1]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.1
+    Version {
+        V1 = 1,
+        V2 = 2,
+        V3 = 3,
     }
 }
 
-impl BERDecodable for Version {
-    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        let num = reader.read_u32()?;
-        match num {
-            1 => Ok(Version::V1),
-            2 => Ok(Version::V2),
-            3 => Ok(Version::V3),
-            _ => Err(ASN1Error::new(ASN1ErrorKind::Invalid)),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct AttributeTypeAndValue {
-    pub oid: ObjectIdentifier,
-    pub value: TaggedDerValue,
-}
-
-impl DerWrite for AttributeTypeAndValue {
-    fn write(&self, writer: DERWriter) {
-        writer.write_sequence(|w| {
-            self.oid.write(w.next());
-            self.value.write(w.next());
-        });
-    }
-}
-
-impl BERDecodable for AttributeTypeAndValue {
-    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        reader.read_sequence(|r| {
-            let oid = ObjectIdentifier::decode_ber(r.next())?;
-            let value = TaggedDerValue::decode_ber(r.next())?;
-            Ok(Self { oid, value })
-        })
+derive_sequence! {
+    /// X.501 `AttributeTypeAndValue` as defined in [RFC 5280 Appendix A.1].
+    ///
+    /// ```text
+    /// AttributeTypeAndValue ::= SEQUENCE {
+    ///   type     AttributeType,
+    ///   value    AttributeValue
+    /// }
+    /// ```
+    ///
+    /// [RFC 5280 Appendix A.1]: https://datatracker.ietf.org/doc/html/rfc5280#appendix-A.1
+    AttributeTypeAndValue {
+        oid: ObjectIdentifier,
+        value: TaggedDerValue,
     }
 }
 
@@ -497,15 +472,17 @@ impl IsCritical for KeyUsage {
     }
 }
 
-/// SubjectDirectoryAttributes as defined in [RFC 5280 Section 4.2.1.8].
-///
-/// ```text
-/// SubjectDirectoryAttributes ::= SEQUENCE SIZE (1..MAX) OF AttributeSet
-/// ```
-///
-/// [RFC 5280 Section 4.2.1.8]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.8
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct SubjectDirectoryAttributes<'a>(pub Vec<Attribute<'a>>);
+
+derive_sequence_of!{
+    /// SubjectDirectoryAttributes as defined in [RFC 5280 Section 4.2.1.8].
+    ///
+    /// ```text
+    /// SubjectDirectoryAttributes ::= SEQUENCE SIZE (1..MAX) OF AttributeSet
+    /// ```
+    ///
+    /// [RFC 5280 Section 4.2.1.8]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.8
+    Attribute<'a> => SubjectDirectoryAttributes<'a>
+}
 
 impl HasOid for SubjectDirectoryAttributes<'_> {
     fn oid() -> &'static ObjectIdentifier {
@@ -518,23 +495,6 @@ impl IsCritical for SubjectDirectoryAttributes<'_> {
         false
     }
 }
-
-impl DerWrite for SubjectDirectoryAttributes<'_> {
-    fn write(&self, writer: DERWriter) {
-        writer.write_sequence_of(|w| {
-            for attr in &self.0 {
-                attr.write(w.next())
-            }
-        })
-    }
-}
-
-impl BERDecodable for SubjectDirectoryAttributes<'_> {
-    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        Ok(SubjectDirectoryAttributes(reader.collect_sequence_of(Attribute::decode_ber)?))
-    }
-}
-
 
 #[cfg(test)]
 mod tests {
