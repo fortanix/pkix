@@ -165,5 +165,5 @@ impl<A: SignatureAlgorithm + BERDecodable> BERDecodable for PopoSigningKey<A> {
 /// ```
 ///
 /// [RFC 4211 Section 4.1]: https://www.rfc-editor.org/rfc/rfc4211#section-4.1
-/// TODO: fields not needed now are not implemented yet
+/// TODO: not implemented yet
 pub type PopoSigningKeyInput = DerSequence<'static>;

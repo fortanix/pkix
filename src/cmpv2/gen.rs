@@ -9,5 +9,5 @@
 
 use crate::types::DerSequence;
 
-/// TODO: fields not needed now are not implemented yet
+/// TODO: not implemented yet
 pub type GeneralInfo = DerSequence<'static>;

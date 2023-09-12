@@ -219,36 +219,5 @@ impl<A: SignatureAlgorithm + BERDecodable> BERDecodable for PkiHeader<'_, A> {
     }
 }
 
-/// The `PKIHeader` type defined in [RFC 4210 Section 5.1.1] features an inline
-/// INTEGER definition that is implemented as the Pvno enum.
-///
-/// ```text
-///     pvno                INTEGER     { cmp1999(1), cmp2000(2) },
-/// ```
-///
-/// [RFC 4210 Section 5.1.1]: https://datatracker.ietf.org/doc/html/rfc4210#section-5.1.1
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum Pvno {
-    Cmp1999 = 1,
-    Cmp2000 = 2,
-}
-
-impl DerWrite for Pvno {
-    fn write(&self, writer: DERWriter) {
-        ((*self).clone() as u32).write(writer)
-    }
-}
-
-impl BERDecodable for Pvno {
-    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        let num = reader.read_u32()?;
-        match num {
-            1 => Ok(Pvno::Cmp1999),
-            2 => Ok(Pvno::Cmp2000),
-            _ => Err(ASN1Error::new(ASN1ErrorKind::Invalid)),
-        }
-    }
-}
-
-/// TODO: fields not needed now are not implemented yet
+/// TODO: not implemented yet
 pub type PkiFreeText = DerSequence<'static>;
