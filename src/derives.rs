@@ -625,7 +625,7 @@ macro_rules! derive_sequence {
                 }
     };
 
-  ($name:ident deriveDerWr($written:ident, $writer:expr) {
+    ($name:ident deriveDerWr($written:ident, $writer:expr) {
         $item:ident : [$tag:tt] IMPLICIT OPTIONAL : $item_type:ty,
         $($tail:tt)*
     }) => {
@@ -641,7 +641,7 @@ macro_rules! derive_sequence {
                 }
     };
 
-  ($name:ident deriveDerWr($written:ident, $writer:expr) {
+    ($name:ident deriveDerWr($written:ident, $writer:expr) {
         $item:ident : [$tag:tt] UNTAGGED OPTIONAL : $item_type:ty,
         $($tail:tt)*
     }) => {
