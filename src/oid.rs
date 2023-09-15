@@ -21,8 +21,12 @@ lazy_static! {
     pub static ref localityName: ObjectIdentifier        = vec![2, 5, 4, 7].into();
     pub static ref stateOrProvinceName: ObjectIdentifier = vec![2, 5, 4, 8].into();
     pub static ref organizationName: ObjectIdentifier    = vec![2, 5, 4, 10].into();
+
+    // Lightweight Directory Access Protocol (LDAP) types, RFC 4519
     pub static ref description: ObjectIdentifier         = vec![2, 5, 4, 13].into();
     pub static ref dnQualifier: ObjectIdentifier         = vec![2, 5, 4, 46].into();
+
+    // Types in Internet Attribute Certificate Profile for Authorization, RFC 5755
     pub static ref attributeTypeRole: ObjectIdentifier = vec![2, 5, 4, 72].into();
 
     // X.509 certificate extensions
