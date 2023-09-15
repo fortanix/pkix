@@ -6,6 +6,7 @@ branches:
     - trying
     # Not really necessary, just to get a green badge on “master”
     - master
+dist: focal
 language: rust
 rust:
   - nightly

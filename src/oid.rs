@@ -16,9 +16,18 @@ lazy_static! {
     pub static ref sha256WithRSAEncryption: ObjectIdentifier = vec![1, 2, 840, 113549, 1, 1, 11].into();
 
     // X.500 attribute types
-    pub static ref commonName: ObjectIdentifier = vec![2, 5, 4, 3].into();
-    pub static ref description: ObjectIdentifier = vec![2, 5, 4, 13].into();
-    pub static ref dnQualifier: ObjectIdentifier = vec![2, 5, 4, 46].into();
+    pub static ref commonName: ObjectIdentifier          = vec![2, 5, 4, 3].into();
+    pub static ref countryName: ObjectIdentifier         = vec![2, 5, 4, 6].into();
+    pub static ref localityName: ObjectIdentifier        = vec![2, 5, 4, 7].into();
+    pub static ref stateOrProvinceName: ObjectIdentifier = vec![2, 5, 4, 8].into();
+    pub static ref organizationName: ObjectIdentifier    = vec![2, 5, 4, 10].into();
+
+    // Lightweight Directory Access Protocol (LDAP) types, RFC 4519
+    pub static ref description: ObjectIdentifier         = vec![2, 5, 4, 13].into();
+    pub static ref dnQualifier: ObjectIdentifier         = vec![2, 5, 4, 46].into();
+
+    // Types in Internet Attribute Certificate Profile for Authorization, RFC 5755
+    pub static ref attributeTypeRole: ObjectIdentifier = vec![2, 5, 4, 72].into();
 
     // X.509 certificate extensions
     pub static ref subjectAltName: ObjectIdentifier = vec![2, 5, 29, 17].into();
@@ -27,6 +36,7 @@ lazy_static! {
     pub static ref subjectKeyIdentifier: ObjectIdentifier = vec![2, 5, 29, 14].into();
     pub static ref authorityKeyIdentifier: ObjectIdentifier = vec![2, 5, 29, 35].into();
     pub static ref keyUsage: ObjectIdentifier = vec![2, 5, 29, 15].into();
+    pub static ref subjectDirectoryAttributes: ObjectIdentifier = vec![2, 5, 29, 9].into();
 
     // PKCS #9 attributes
     pub static ref extensionRequest: ObjectIdentifier = vec![1, 2, 840, 113549, 1, 9, 14].into();
