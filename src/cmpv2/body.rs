@@ -56,7 +56,7 @@ pub enum PkiBody {
     Cr(CertReqMessages),
     /// Certification Response
     Cp(CertRepMessage),
-    /// imported from [PKCS10]
+    /// imported from [PKCS10](https://datatracker.ietf.org/doc/html/rfc2986)
     P10cr(CertReq),
     /// pop Challenge
     Popdecc(PopoDecKeyChallContent),

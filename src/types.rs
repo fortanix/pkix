@@ -833,8 +833,6 @@ impl BERDecodable for GeneralizedTime {
 ///
 /// Octet strings represent contiguous sequences of octets, a.k.a. bytes.
 ///
-/// This type provides the same functionality as [`OctetStringRef`] but owns
-/// the backing data.
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct OctetString {
     /// Bitstring represented as a slice of bytes.

@@ -172,9 +172,10 @@ impl<S: BERDecodable + Integer, A: BERDecodable + SignatureAlgorithm, K: BERDeco
 /// ```
 ///
 /// [RFC 5280 § 4.1.2.7]: https://tools.ietf.org/html/rfc5280#section-4.1.2.7
+/// [`AlgorithmIdentifier`]: crate::algorithms::AlgorithmIdentifier
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct SubjectPublicKeyInfo<A: SignatureAlgorithm = DerSequence<'static>> {
-    /// X.509 [`AlgorithmIdentifier`] for the public key type
+    /// X.509 [`AlgorithmIdentifier`](crate::algorithms::AlgorithmIdentifier) for the public key type
     pub algorithm: A,
 
     /// Public key data
