@@ -462,12 +462,17 @@ impl HasOid for KeyUsage {
 impl DerWrite for KeyUsage {
     fn write(&self, writer: DERWriter) {
         let bytes = self.bits().to_be_bytes();
-        let mut bit_vec = BitVec::from_bytes(&bytes);
-        while bit_vec.iter().last() == Some(false) {
-            bit_vec.pop();
-        }
+        let bit_vec = remove_trailing_zero(&BitVec::from_bytes(&bytes));
         writer.write_bitvec(&bit_vec);
     }
+}
+
+pub(crate) fn remove_trailing_zero(bit_vec: &BitVec) -> BitVec {
+    let mut ret = bit_vec.clone();
+    while ret.iter().last() == Some(false) {
+        ret.pop();
+    }
+    ret
 }
 
 impl BERDecodable for KeyUsage {
