@@ -763,6 +763,9 @@ impl BERDecodable for DateTime {
     }
 }
 
+pub type DerAnyOwned = DerSequence<'static>;
+pub type DerAny<'a> = DerSequence<'a>;
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DerSequence<'a> {
     pub value: Cow<'a, [u8]>,

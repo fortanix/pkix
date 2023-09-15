@@ -11,7 +11,7 @@ use bit_vec::BitVec;
 use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERDecodable, BERReader, DERWriter, Tag};
 
 use crate::{
-    types::{DerSequence, SignatureAlgorithm},
+    types::{DerAnyOwned, DerSequence, SignatureAlgorithm},
     DerWrite,
 };
 
@@ -28,31 +28,41 @@ use crate::{
 /// ```
 ///
 /// [RFC 4211 Section 4]: https://www.rfc-editor.org/rfc/rfc4211#section-4
-// TODO: fields not needed now are not added, track ticket: PROD-7432
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum ProofOfPossession {
     RaVerified(()),
     Signature(PopoSigningKey),
-    // TODO: KeyEncipherment(POPOPrivKey),
-    // TODO: KeyAgreement(POPOPrivKey),
+    KeyEncipherment(POPOPrivKey),
+    KeyAgreement(POPOPrivKey),
 }
 
 impl ProofOfPossession {
-    /// IMPLICIT TAG (rfc4211#appendix-B)
+    /// IMPLICIT TAG (rfc4211#appendix-B) for RaVerified
     const TAG_RA_VERIFIED: u64 = 0;
-    /// IMPLICIT TAG (rfc4211#appendix-B)
+    /// IMPLICIT TAG (rfc4211#appendix-B) for Signature
     const TAG_SIGNATURE: u64 = 1;
+    /// IMPLICIT TAG (rfc4211#appendix-B) for KeyEncipherment
+    const TAG_KEY_ENCIPHERMENT: u64 = 2;
+    /// IMPLICIT TAG (rfc4211#appendix-B) for KeyAgreement
+    const TAG_KEY_AGREEMENT: u64 = 3;
+
+    fn tag(&self) -> Tag {
+        match self {
+            ProofOfPossession::RaVerified(_) => Tag::context(Self::TAG_RA_VERIFIED),
+            ProofOfPossession::Signature(_) => Tag::context(Self::TAG_SIGNATURE),
+            ProofOfPossession::KeyEncipherment(_) => Tag::context(Self::TAG_KEY_ENCIPHERMENT),
+            ProofOfPossession::KeyAgreement(_) => Tag::context(Self::TAG_KEY_AGREEMENT),
+        }
+    }
 }
 
 impl DerWrite for ProofOfPossession {
     fn write(&self, writer: DERWriter) {
         match self {
-            ProofOfPossession::RaVerified(()) => {
-                writer.write_tagged_implicit(Tag::context(Self::TAG_RA_VERIFIED), |w| w.write_null())
-            }
-            ProofOfPossession::Signature(popo_signing_key) => {
-                writer.write_tagged_implicit(Tag::context(Self::TAG_SIGNATURE), |w| popo_signing_key.write(w))
-            }
+            ProofOfPossession::RaVerified(()) => writer.write_tagged_implicit(self.tag(), |w| w.write_null()),
+            ProofOfPossession::Signature(key) => writer.write_tagged_implicit(self.tag(), |w| key.write(w)),
+            ProofOfPossession::KeyEncipherment(key) => writer.write_tagged_implicit(self.tag(), |w| key.write(w)),
+            ProofOfPossession::KeyAgreement(key) => writer.write_tagged_implicit(self.tag(), |w| key.write(w)),
         }
     }
 }
@@ -63,10 +73,27 @@ impl BERDecodable for ProofOfPossession {
         reader.read_tagged_implicit(Tag::context(tag_number), |r| match tag_number {
             Self::TAG_RA_VERIFIED => Ok(ProofOfPossession::RaVerified(r.read_null()?)),
             Self::TAG_SIGNATURE => Ok(ProofOfPossession::Signature(PopoSigningKey::decode_ber(r)?)),
+            Self::TAG_KEY_ENCIPHERMENT => Ok(ProofOfPossession::KeyEncipherment(POPOPrivKey::decode_ber(r)?)),
+            Self::TAG_KEY_AGREEMENT => Ok(ProofOfPossession::KeyAgreement(POPOPrivKey::decode_ber(r)?)),
             _ => Err(ASN1Error::new(ASN1ErrorKind::Invalid)),
         })
     }
 }
+
+/// The `POPOPrivKey` type is defined in [RFC 4211 Section 4.2].
+///
+/// ```text
+///   POPOPrivKey ::= CHOICE {
+///       thisMessage       [0] BIT STRING,         -- Deprecated
+///       subsequentMessage [1] SubsequentMessage,
+///       dhMAC             [2] BIT STRING,         -- Deprecated
+///       agreeMAC          [3] PKMACValue,
+///       encryptedKey      [4] EnvelopedData }
+/// ```
+///
+/// [RFC 4211 Section 4.2]: https://www.rfc-editor.org/rfc/rfc4211#section-4.2
+/// TODO: not yet implemented, tracking issue: #23
+type POPOPrivKey = DerAnyOwned;
 
 /// The `POPOSigningKey` type is defined in [RFC 4211 Section 4.1].
 ///
