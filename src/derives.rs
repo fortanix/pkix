@@ -398,33 +398,77 @@ macro_rules! derive_set_of {
 }
 
 #[macro_export]
+macro_rules! derive_sequence_of {
+    ($(#[$outer:meta])* $elem_name:ident$(<$ele_lt:lifetime>)? => $sequence_name:ident$(<$seq_lt:lifetime>)?) => {
+        $(#[$outer])*
+        #[derive(Clone, Debug, Eq, PartialEq, Hash, Default)]
+        #[allow(non_camel_case_types, non_snake_case)]
+        pub struct $sequence_name$(<$seq_lt>)?(pub Vec<$elem_name$(<$ele_lt>)?>);
+        impl$(<$seq_lt>)? DerWrite for $sequence_name$(<$seq_lt>)? {
+            fn write(&self, writer: DERWriter) {
+                writer.write_sequence_of(|w| {
+                    for element in &self.0 {
+                        element.write(w.next());
+                    }
+                })
+            }
+        }
+
+        impl$(<$seq_lt>)? BERDecodable for $sequence_name$(<$seq_lt>)? {
+            fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+                Ok($sequence_name(reader.collect_sequence_of($elem_name::decode_ber)?))
+            }
+        }
+        impl$(<$seq_lt>)? From<Vec<$elem_name$(<$ele_lt>)?>> for $sequence_name$(<$seq_lt>)? {
+            fn from(elements: Vec<$elem_name$(<$ele_lt>)?>) -> Self {
+                Self(elements)
+            }
+        }
+        impl$(<$seq_lt>)? $sequence_name$(<$seq_lt>)? {
+            #[allow(unused)]
+            pub fn push<T: Into<$elem_name$(<$ele_lt>)?>>(&mut self, elem: T) {
+                self.0.push(elem.into());
+            }
+        }
+        impl$(<$seq_lt>)? From<$sequence_name$(<$seq_lt>)?> for Vec<$elem_name$(<$ele_lt>)?> {
+            fn from(sequence_name: $sequence_name$(<$seq_lt>)?) -> Self {
+                sequence_name.0
+            }
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! derive_sequence {
-    ($name:ident {
-         $($item:ident : [$tag:tt] $tag_type:ident : $item_type:ty),*$(,)*
+    (
+        $(#[$outer:meta])*
+        $name:ident$(<$name_lt:lifetime>)? {
+         $($item:ident : [$tag:tt] $tag_type:ident $optional:ident: $item_type:ty),*$(,)*
     }) => {
+        $(#[$outer])*
         #[derive(Clone, Debug, Eq, PartialEq, Hash)]
         #[allow(non_camel_case_types, non_snake_case)]
-         pub struct $name {
-                $(pub $item : $item_type),*,
-         }
+        pub struct $name$(<$name_lt>)? {
+            $(pub $item : $item_type),*,
+        }
 
-        impl DerWrite for $name {
+        impl$(<$name_lt>)? DerWrite for $name$(<$name_lt>)? {
             fn write(&self, writer: DERWriter) {
                 writer.write_sequence(|writer| {
                     derive_sequence! {
                         $name deriveDerWr(self, writer.next()) {
-                             $($item : [$tag] $tag_type  : $item_type),*,
+                             $($item : [$tag] $tag_type $optional : $item_type),*,
                         }
                     }
                 })
              }
         }
-        impl BERDecodable for $name {
+        impl$(<$name_lt>)? BERDecodable for $name$(<$name_lt>)? {
             fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
                 reader.read_sequence(|reader| {
                     derive_sequence! {
-                        $name deriveBerRd(reader.next()) {
-                             $($item : [$tag] $tag_type : $item_type),*,
+                        $name deriveBerRd(reader, reader.next()) {
+                             $($item : [$tag] $tag_type $optional : $item_type),*,
                         }
                     }
                     let obj = $name {
@@ -435,30 +479,50 @@ macro_rules! derive_sequence {
             }
         }
     };
-    ($name:ident {
-         $($item:ident : $item_type:ty),*$(,)*
+
+    (
+        $(#[$outer:meta])*
+        $name:ident$(<$name_lt:lifetime>)? {
+        $($item:ident : [$tag:tt] $tag_type:ident : $item_type:ty),*$(,)*
     }) => {
-          derive_sequence! {
-              $name {
-                  $($item : [_] UNTAGGED : $item_type),*,
-              }
-          }
+            derive_sequence! {
+                $(#[$outer])*
+                $name$(<$name_lt>)? {
+                    $($item : [$tag] $tag_type REQUIRED : $item_type),*,
+                }
+            }
     };
 
-    ($name:ident : Subsequence {
-         $($item:ident : [$tag:tt] $tag_type:ident : $item_type:ty),*$(,)*
+    (
+        $(#[$outer:meta])*
+        $name:ident$(<$name_lt:lifetime>)? {
+         $($item:ident : $item_type:ty),*$(,)*
     }) => {
+            derive_sequence! {
+                $(#[$outer])*
+                $name$(<$name_lt>)? {
+                    $($item : [_] UNTAGGED REQUIRED : $item_type),*,
+                }
+            }
+    };
+
+    (
+        $(#[$outer:meta])*
+        $name:ident : Subsequence {
+         $($item:ident : [$tag:tt] $tag_type:ident $optional:ident : $item_type:ty),*$(,)*
+    }) => {
+        $(#[$outer])*
         #[derive(Clone, Debug, Eq, PartialEq, Hash)]
         #[allow(non_camel_case_types, non_snake_case)]
-         pub struct $name {
-                $(pub $item : $item_type),*,
-         }
+        pub struct $name {
+            $(pub $item : $item_type),*,
+        }
 
         impl SubSequenceDerWrite for $name {
            fn write(&self, writer: &mut DERWriterSeq) {
                     derive_sequence! {
                         $name deriveDerWr(self, writer.next()) {
-                             $($item : [$tag] $tag_type  : $item_type),*,
+                             $($item : [$tag] $tag_type $optional : $item_type),*,
                         }
                     }
            }
@@ -466,8 +530,8 @@ macro_rules! derive_sequence {
         impl BerDecodableSubSequence for $name {
            fn decode_ber<'a, 'b>(reader: &mut BERReaderSeq<'a, 'b>) -> ASN1Result<Self> {
                     derive_sequence! {
-                        $name deriveBerRd(reader.next()) {
-                             $($item : [$tag] $tag_type : $item_type),*,
+                        $name deriveBerRd(reader, reader.next()) {
+                             $($item : [$tag] $tag_type $optional : $item_type),*,
                         }
                     }
                     let obj = $name {
@@ -477,20 +541,36 @@ macro_rules! derive_sequence {
            }
         }
     };
-    ($name:ident : Subsequence {
+
+    (
+        $(#[$outer:meta])*
+        $name:ident : Subsequence {
+        $($item:ident : [$tag:tt] $tag_type:ident : $item_type:ty),*$(,)*
+    }) => {
+            derive_sequence! {
+                $(#[$outer])*
+                $name :Subsequence {
+                    $($item : [$tag] $tag_type REQUIRED : $item_type),*,
+                }
+            }
+    };
+
+    (
+        $(#[$outer:meta])*
+        $name:ident : Subsequence {
          $($item:ident : $item_type:ty),*$(,)*
     }) => {
           derive_sequence! {
-              $name :Subsequence {
-                  $($item : [_] UNTAGGED : $item_type),*,
-              }
+                $(#[$outer])*
+                $name :Subsequence {
+                    $($item : [_] UNTAGGED REQUIRED : $item_type),*,
+                }
           }
     };
 
-
     ($name:ident deriveDerWr($written:ident, $writer:expr) { }) => {};
     ($name:ident deriveDerWr($written:ident, $writer:expr) {
-          $item:ident : [$tag:tt] EXPLICIT : $item_type:ty,
+          $item:ident : [$tag:tt] EXPLICIT REQUIRED : $item_type:ty,
           $($tail:tt)*
     }) => {
                 $writer.write_tagged(Tag::context($tag), |writer| {
@@ -502,8 +582,9 @@ macro_rules! derive_sequence {
                     }
                 }
     };
+
     ($name:ident deriveDerWr($written:ident, $writer:expr) {
-          $item:ident : [$tag:tt] IMPLICIT : $item_type:ty,
+          $item:ident : [$tag:tt] IMPLICIT REQUIRED : $item_type:ty,
           $($tail:tt)*
     }) => {
                 $writer.write_tagged_implicit(Tag::context($tag), |writer| {
@@ -515,8 +596,9 @@ macro_rules! derive_sequence {
                     }
                 }
     };
+
     ($name:ident deriveDerWr($written:ident, $writer:expr) {
-          $item:ident : [$tag:tt] UNTAGGED : $item_type:ty,
+          $item:ident : [$tag:tt] UNTAGGED REQUIRED : $item_type:ty,
           $($tail:tt)*
     }) => {
         $written.$item.write($writer);
@@ -527,48 +609,147 @@ macro_rules! derive_sequence {
         }
     };
 
-    ($name:ident deriveBerRd($reader:expr) { }) => {};
-    ($name:ident deriveBerRd($reader:expr) {
-          $item:ident : [$tag:tt] EXPLICIT : $item_type:ty,
+    ($name:ident deriveDerWr($written:ident, $writer:expr) {
+        $item:ident : [$tag:tt] EXPLICIT OPTIONAL : $item_type:ty,
+        $($tail:tt)*
+    }) => {
+                if let Some($item) = $written.$item.as_ref() {
+                    $writer.write_tagged(Tag::context($tag), |writer| {
+                        $item.write(writer)
+                    });
+                };
+                derive_sequence! {
+                    $name deriveDerWr($written, $writer) {
+                        $($tail)*
+                    }
+                }
+    };
+
+    ($name:ident deriveDerWr($written:ident, $writer:expr) {
+        $item:ident : [$tag:tt] IMPLICIT OPTIONAL : $item_type:ty,
+        $($tail:tt)*
+    }) => {
+                if let Some($item) = $written.$item.as_ref() {
+                    $writer.write_tagged_implicit(Tag::context($tag), |writer| {
+                        $item.write(writer)
+                    });
+                }
+                derive_sequence! {
+                    $name deriveDerWr($written, $writer) {
+                        $($tail)*
+                    }
+                }
+    };
+
+    ($name:ident deriveDerWr($written:ident, $writer:expr) {
+        $item:ident : [$tag:tt] UNTAGGED OPTIONAL : $item_type:ty,
+        $($tail:tt)*
+    }) => {
+        if let Some($item) = $written.$item.as_ref() {
+            $item.write($writer);
+        }
+        derive_sequence! {
+            $name deriveDerWr($written, $writer) {
+                $($tail)*
+            }
+        }
+    };
+
+
+    ($name:ident deriveBerRd($reader:ident, $next_reader:expr) { }) => {};
+    ($name:ident deriveBerRd($reader:ident, $next_reader:expr) {
+          $item:ident : [$tag:tt] EXPLICIT REQUIRED : $item_type:ty,
           $($tail:tt)*
     }) => {
 
                 #[allow(non_camel_case_types, non_snake_case)]
-                let $item = $reader.read_tagged(Tag::context($tag), |reader| {
+                let $item = $next_reader.read_tagged(Tag::context($tag), |reader| {
                    <$item_type as BERDecodable>::decode_ber(reader)
                 })?;
                 derive_sequence! {
-                    $name deriveBerRd($reader) {
+                    $name deriveBerRd($reader, $next_reader) {
                          $($tail)*
                     }
                 }
     };
-    ($name:ident deriveBerRd($reader:expr) {
-          $item:ident : [$tag:tt] IMPLICIT : $item_type:ty,
+
+    ($name:ident deriveBerRd($reader:ident, $next_reader:expr) {
+          $item:ident : [$tag:tt] IMPLICIT REQUIRED : $item_type:ty,
           $($tail:tt)*
     }) => {
               #[allow(non_camel_case_types, non_snake_case)]
-              let $item= $reader.read_tagged_implicit(Tag::context($tag), |reader| {
+              let $item= $next_reader.read_tagged_implicit(Tag::context($tag), |reader| {
                   <$item_type as BERDecodable>::decode_ber(reader)
               })?;
               derive_sequence! {
-                  $name deriveBerRd($reader) {
+                  $name deriveBerRd($reader, $next_reader) {
                       $($tail)*
                   }
                }
     };
-    ($name:ident deriveBerRd($reader:expr) {
-          $item:ident : [$tag:tt] UNTAGGED : $item_type:ty,
+
+    ($name:ident deriveBerRd($reader:ident, $next_reader:expr) {
+          $item:ident : [$tag:tt] UNTAGGED REQUIRED : $item_type:ty,
           $($tail:tt)*
     }) => {
                #[allow(non_camel_case_types, non_snake_case)]
-               let $item = <$item_type as BERDecodable>::decode_ber($reader)?;
+               let $item = <$item_type as BERDecodable>::decode_ber($next_reader)?;
                derive_sequence! {
-                   $name deriveBerRd($reader) {
+                   $name deriveBerRd($reader, $next_reader) {
                        $($tail)*
                    }
                 }
-          }
+    };
+
+    ($name:ident deriveBerRd($reader:ident, $next_reader:expr) {
+          $item:ident : [$tag:tt] EXPLICIT OPTIONAL : $item_type:ty,
+          $($tail:tt)*
+    }) => {
+
+                #[allow(non_camel_case_types, non_snake_case)]
+                let $item: $item_type = $reader.read_optional(|reader_optional| {
+                    reader_optional.read_tagged(Tag::context($tag), |reader| {
+                        <_ as BERDecodable>::decode_ber(reader)
+                    })
+                })?;
+                derive_sequence! {
+                    $name deriveBerRd($reader, $next_reader) {
+                         $($tail)*
+                    }
+                }
+    };
+
+    ($name:ident deriveBerRd($reader:ident, $next_reader:expr) {
+          $item:ident : [$tag:tt] IMPLICIT OPTIONAL : $item_type:ty,
+          $($tail:tt)*
+    }) => {
+                #[allow(non_camel_case_types, non_snake_case)]
+                let $item: $item_type = $reader.read_optional(|reader_optional| {
+                    reader_optional.read_tagged_implicit(Tag::context($tag), |reader| {
+                        <_ as BERDecodable>::decode_ber(reader)
+                    })
+                })?;
+                derive_sequence! {
+                    $name deriveBerRd($reader, $next_reader) {
+                        $($tail)*
+                    }
+                }
+    };
+
+    ($name:ident deriveBerRd($reader:ident, $next_reader:expr) {
+          $item:ident : [$tag:tt] UNTAGGED OPTIONAL : $item_type:ty,
+          $($tail:tt)*
+    }) => {
+                #[allow(non_camel_case_types, non_snake_case)]
+                let $item: $item_type = $reader.read_optional(|reader_optional| {
+                    <_ as BERDecodable>::decode_ber(reader_optional)
+                })?;
+                derive_sequence! {
+                    $name deriveBerRd($reader, $next_reader) {
+                        $($tail)*
+                    }
+                }
+    };
 }
 
 // Helps one define enum to and from u32
@@ -576,9 +757,12 @@ macro_rules! derive_sequence {
 
 #[macro_export]
 macro_rules! define_version {
-    ($name:ident {
+    (
+        $(#[$outer:meta])*
+        $name:ident {
         $($ver:ident = $n:expr),*,
     }) => {
+        $(#[$outer])*
         #[derive(Clone, Debug, Eq, PartialEq, Hash)]
         pub enum $name {
             $($ver = $n),*,

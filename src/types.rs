@@ -833,8 +833,6 @@ impl BERDecodable for GeneralizedTime {
 ///
 /// Octet strings represent contiguous sequences of octets, a.k.a. bytes.
 ///
-/// This type provides the same functionality as [`OctetStringRef`] but owns
-/// the backing data.
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct OctetString {
     /// Bitstring represented as a slice of bytes.
@@ -891,6 +889,22 @@ impl BERDecodable for OctetString {
 impl AsRef<[u8]> for OctetString {
     fn as_ref(&self) -> &[u8] {
         &self.inner
+    }
+}
+
+derive_sequence!{
+    /// X.509 `AlgorithmIdentifier` as defined in [RFC 5280 Section 4.1.1.2].
+    ///
+    /// ```text
+    /// AlgorithmIdentifier  ::=  SEQUENCE  {
+    ///      algorithm               OBJECT IDENTIFIER,
+    ///      parameters              ANY DEFINED BY algorithm OPTIONAL  }
+    /// ```
+    ///
+    /// [RFC 5280 Section 4.1.1.2]: https://tools.ietf.org/html/rfc5280#section-4.1.1.2
+    AlgorithmIdentifierOwned {
+        oid: [_] UNTAGGED REQUIRED: ObjectIdentifier,
+        parameters: [_] UNTAGGED OPTIONAL: Option<DerAnyOwned>
     }
 }
 

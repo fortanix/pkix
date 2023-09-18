@@ -56,7 +56,7 @@ pub enum PkiBody {
     Cr(CertReqMessages),
     /// Certification Response
     Cp(CertRepMessage),
-    /// imported from [PKCS10]
+    /// imported from [PKCS10](https://datatracker.ietf.org/doc/html/rfc2986)
     P10cr(CertReq),
     /// pop Challenge
     Popdecc(PopoDecKeyChallContent),
@@ -105,59 +105,59 @@ pub enum PkiBody {
 }
 
 impl PkiBody {
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Initialization Request
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Initialization Request
     const TAG_IR: u64 = 0;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Initialization Response
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Initialization Response
     const TAG_IP: u64 = 1;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Certification Request
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Certification Request
     const TAG_CR: u64 = 2;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Certification Response
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Certification Response
     const TAG_CP: u64 = 3;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for imported from [PKCS10]
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for imported from [PKCS10]
     const TAG_P10_CR: u64 = 4;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for pop Challenge
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for pop Challenge
     const TAG_POP_DE_CC: u64 = 5;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for pop Response
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for pop Response
     const TAG_POP_DE_CR: u64 = 6;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Key Update Request
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Key Update Request
     const TAG_KUR: u64 = 7;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Key Update Response
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Key Update Response
     const TAG_KUP: u64 = 8;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Key Recovery Request
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Key Recovery Request
     const TAG_KRR: u64 = 9;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Key Recovery Response
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Key Recovery Response
     const TAG_KRP: u64 = 10;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Revocation Request
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Revocation Request
     const TAG_RR: u64 = 11;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Revocation Response
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Revocation Response
     const TAG_RP: u64 = 12;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Cross-Cert. Request
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Cross-Cert. Request
     const TAG_CCR: u64 = 13;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Cross-Cert. Response
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Cross-Cert. Response
     const TAG_CCP: u64 = 14;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for CA Key Update Ann.
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for CA Key Update Ann.
     const TAG_CKU_ANN: u64 = 15;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Certificate Ann.
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Certificate Ann.
     const TAG_C_ANN: u64 = 16;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Revocation Ann.
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Revocation Ann.
     const TAG_R_ANN: u64 = 17;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for CRL Announcement
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for CRL Announcement
     const TAG_CRL_ANN: u64 = 18;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Confirmation
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Confirmation
     const TAG_PKI_CONF: u64 = 19;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Nested Message
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Nested Message
     const TAG_NESTED: u64 = 20;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for General Message
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for General Message
     const TAG_GEN_M: u64 = 21;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for General Response
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for General Response
     const TAG_GEN_P: u64 = 22;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Error Message
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Error Message
     const TAG_ERROR: u64 = 23;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Certificate confirm
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Certificate confirm
     const TAG_CERT_CONF: u64 = 24;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Polling request
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Polling request
     const TAG_POLL_REQ: u64 = 25;
-    /// EXPLICIT TAG (rfc4210#appendix-F) for Polling response
+    /// EXPLICIT TAG [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F) for Polling response
     const TAG_POLL_REP: u64 = 26;
 
     fn tag(&self) -> Tag {

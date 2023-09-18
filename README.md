@@ -1,3 +1,13 @@
+# pkix
+
+## Release process
+
+1. Create PR to bump the version of `pkix`.
+2. Run `cargo semver-checks` to check whether it's safe to release the new version.
+   1. Please check how to install `cargo-semver-checks` from https://github.com/obi1kenobi/cargo-semver-checks.
+3. Publish package and push new tag through `git tag` and `cargo publish`, please ensure tag name follows `{{crate name}}_v{{version}}`.
+   1. Or you could use `cargo release` to help you, please check how to install `cargo-release` from https://github.com/crate-ci/cargo-release.
+
 # Contributing
 
 We gratefully accept bug reports and contributions from the community.

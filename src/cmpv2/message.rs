@@ -14,74 +14,26 @@ use crate::{x509::GenericCertificate, DerWrite};
 
 use super::{body::PkiBody, header::PkiHeader};
 
-/// The `PKIMessage` type is defined in [RFC 4210 Section 5.1].
-///
-/// ```text
-/// PKIMessage ::= SEQUENCE {
-///     header           PKIHeader,
-///     body             PKIBody,
-///     protection   [0] PKIProtection OPTIONAL,
-///     extraCerts   [1] SEQUENCE SIZE (1..MAX) OF CMPCertificate
-///     OPTIONAL }
-/// ```
-///
-/// [RFC 4210 Section 5.1]: https://datatracker.ietf.org/doc/html/rfc4210#section-5.1
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct PkiMessage<'a> {
-    pub header: PkiHeader<'a>,
-    pub body: PkiBody,
-    pub protection: Option<PkiProtection>,
-    pub extra_certs: Option<CmpCertificates>,
-}
-
-impl PkiMessage<'_> {
-    /// EXPLICIT TAG (rfc4210#appendix-F)
-    const TAG_PROTECTION: u64 = 0;
-    /// EXPLICIT TAG (rfc4210#appendix-F)
-    const TAG_EXTRA_CERTS: u64 = 1;
-}
-
-impl DerWrite for PkiMessage<'_> {
-    fn write(&self, writer: DERWriter) {
-        writer.write_sequence(|writer| {
-            self.header.write(writer.next());
-            self.body.write(writer.next());
-            if let Some(protection) = self.protection.as_ref() {
-                writer
-                    .next()
-                    .write_tagged(Tag::context(Self::TAG_PROTECTION), |writer| protection.write(writer))
-            };
-            if let Some(extra_certs) = self.extra_certs.as_ref() {
-                writer
-                    .next()
-                    .write_tagged(Tag::context(Self::TAG_EXTRA_CERTS), |writer| extra_certs.write(writer))
-            };
-        })
-    }
-}
-
-impl BERDecodable for PkiMessage<'_> {
-    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        reader.read_sequence(|reader| {
-            let header = <PkiHeader as BERDecodable>::decode_ber(reader.next())?;
-            let body = <PkiBody as BERDecodable>::decode_ber(reader.next())?;
-            let protection: Option<PkiProtection> = reader.read_optional(|reader| {
-                reader.read_tagged(Tag::context(Self::TAG_PROTECTION), |reader| {
-                    <PkiProtection as BERDecodable>::decode_ber(reader)
-                })
-            })?;
-            let extra_certs: Option<CmpCertificates> = reader.read_optional(|reader| {
-                reader.read_tagged(Tag::context(Self::TAG_EXTRA_CERTS), |reader| {
-                    <CmpCertificates as BERDecodable>::decode_ber(reader)
-                })
-            })?;
-            Ok(PkiMessage {
-                header,
-                body,
-                protection,
-                extra_certs,
-            })
-        })
+derive_sequence! {
+    /// The `PKIMessage` type is defined in [RFC 4210 Section 5.1].
+    ///
+    /// ```text
+    /// PKIMessage ::= SEQUENCE {
+    ///     header           PKIHeader,
+    ///     body             PKIBody,
+    ///     protection   [0] PKIProtection OPTIONAL,
+    ///     extraCerts   [1] SEQUENCE SIZE (1..MAX) OF CMPCertificate
+    ///     OPTIONAL }
+    /// ```
+    ///
+    /// [RFC 4210 Section 5.1]: https://datatracker.ietf.org/doc/html/rfc4210#section-5.1
+    ///
+    /// Tags are EXPLICIT TAG in default according to [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F).
+    PkiMessage<'a> {
+        header:      [_] UNTAGGED REQUIRED: PkiHeader<'a>,
+        body:        [_] UNTAGGED REQUIRED: PkiBody,
+        protection:  [0] EXPLICIT OPTIONAL: Option<PkiProtection>,
+        extra_certs: [1] EXPLICIT OPTIONAL: Option<CmpCertificates>,
     }
 }
 
@@ -103,59 +55,27 @@ pub type PkiProtection = BitVec;
 /// [RFC 4210 Appendix F]: https://www.rfc-editor.org/rfc/rfc4210#appendix-F
 pub type CmpCertificate = GenericCertificate;
 
-/// Represents: SEQUENCE SIZE (1..MAX) OF CMPCertificate
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct CmpCertificates(pub Vec<CmpCertificate>);
+derive_sequence_of!{
+    /// Represents: SEQUENCE SIZE (1..MAX) OF CMPCertificate
+    CmpCertificate => CmpCertificates
+}
 
-impl DerWrite for CmpCertificates {
-    fn write(&self, writer: DERWriter) {
-        writer.write_sequence_of(|w| {
-            for cert in &self.0 {
-                cert.write(w.next())
-            }
-        })
+derive_sequence! {
+    /// The `ProtectedPart` type is defined in [RFC 4210 Section 5.1.3].
+    ///
+    /// ```text
+    /// ProtectedPart ::= SEQUENCE {
+    ///     header    PKIHeader,
+    ///     body      PKIBody }
+    /// ```
+    ///
+    /// [RFC 4210 Section 5.1.3]: https://www.rfc-editor.org/rfc/rfc4210#section-5.1.3
+    ProtectedPart<'a> {
+        header:      PkiHeader<'a>,
+        body:        PkiBody,
     }
 }
 
-impl BERDecodable for CmpCertificates {
-    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        Ok(CmpCertificates(reader.collect_sequence_of(CmpCertificate::decode_ber)?))
-    }
-}
-
-/// The `ProtectedPart` type is defined in [RFC 4210 Section 5.1.3].
-///
-/// ```text
-/// ProtectedPart ::= SEQUENCE {
-///     header    PKIHeader,
-///     body      PKIBody }
-/// ```
-///
-/// [RFC 4210 Section 5.1.3]: https://www.rfc-editor.org/rfc/rfc4210#section-5.1.3
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct ProtectedPart<'a> {
-    pub header: PkiHeader<'a>,
-    pub body: PkiBody,
-}
-
-impl DerWrite for ProtectedPart<'_> {
-    fn write(&self, writer: DERWriter) {
-        writer.write_sequence(|w| {
-            self.header.write(w.next());
-            self.body.write(w.next());
-        });
-    }
-}
-
-impl BERDecodable for ProtectedPart<'_> {
-    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
-        reader.read_sequence(|r| {
-            let header = PkiHeader::decode_ber(r.next())?;
-            let body = PkiBody::decode_ber(r.next())?;
-            Ok(ProtectedPart { header, body })
-        })
-    }
-}
 
 #[cfg(test)]
 mod test {

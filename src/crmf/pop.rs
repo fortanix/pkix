@@ -11,7 +11,7 @@ use bit_vec::BitVec;
 use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERDecodable, BERReader, DERWriter, Tag};
 
 use crate::{
-    types::{DerAnyOwned, DerSequence, SignatureAlgorithm},
+    types::{AlgorithmIdentifierOwned, DerAnyOwned},
     DerWrite,
 };
 
@@ -37,13 +37,13 @@ pub enum ProofOfPossession {
 }
 
 impl ProofOfPossession {
-    /// IMPLICIT TAG (rfc4211#appendix-B) for RaVerified
+    /// IMPLICIT TAG [RFC4211#appendix-B](https://datatracker.ietf.org/doc/html/rfc4211#appendix-B) for RaVerified
     const TAG_RA_VERIFIED: u64 = 0;
-    /// IMPLICIT TAG (rfc4211#appendix-B) for Signature
+    /// IMPLICIT TAG [RFC4211#appendix-B](https://datatracker.ietf.org/doc/html/rfc4211#appendix-B) for Signature
     const TAG_SIGNATURE: u64 = 1;
-    /// IMPLICIT TAG (rfc4211#appendix-B) for KeyEncipherment
+    /// IMPLICIT TAG [RFC4211#appendix-B](https://datatracker.ietf.org/doc/html/rfc4211#appendix-B) for KeyEncipherment
     const TAG_KEY_ENCIPHERMENT: u64 = 2;
-    /// IMPLICIT TAG (rfc4211#appendix-B) for KeyAgreement
+    /// IMPLICIT TAG [RFC4211#appendix-B](https://datatracker.ietf.org/doc/html/rfc4211#appendix-B) for KeyAgreement
     const TAG_KEY_AGREEMENT: u64 = 3;
 
     fn tag(&self) -> Tag {
@@ -107,18 +107,18 @@ type POPOPrivKey = DerAnyOwned;
 ///
 /// [RFC 4211 Section 4.1]: https://www.rfc-editor.org/rfc/rfc4211#section-4.1
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct PopoSigningKey<A: SignatureAlgorithm = DerSequence<'static>> {
+pub struct PopoSigningKey {
     pub poposk_input: Option<PopoSigningKeyInput>,
-    pub alg_id: A,
+    pub alg_id: AlgorithmIdentifierOwned,
     pub signature: BitVec,
 }
 
-impl<A: SignatureAlgorithm> PopoSigningKey<A> {
-    /// IMPLICIT TAG (rfc4211#appendix-B)
+impl PopoSigningKey {
+    /// IMPLICIT TAG [RFC4211#appendix-B](https://datatracker.ietf.org/doc/html/rfc4211#appendix-B) for POPOSigningKeyInput
     const TAG_POPOSK_INPUT: u64 = 0;
 }
 
-impl<A: SignatureAlgorithm + DerWrite> DerWrite for PopoSigningKey<A> {
+impl DerWrite for PopoSigningKey {
     fn write(&self, writer: DERWriter) {
         writer.write_sequence(|writer| {
             if let Some(poposk_input) = self.poposk_input.as_ref() {
@@ -132,7 +132,7 @@ impl<A: SignatureAlgorithm + DerWrite> DerWrite for PopoSigningKey<A> {
     }
 }
 
-impl<A: SignatureAlgorithm + BERDecodable> BERDecodable for PopoSigningKey<A> {
+impl BERDecodable for PopoSigningKey {
     fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
         // <ProofOfPossession as BERDecodable>::decode_ber(reader.next())
         reader.read_sequence(|reader| {
@@ -143,7 +143,7 @@ impl<A: SignatureAlgorithm + BERDecodable> BERDecodable for PopoSigningKey<A> {
                     _ => Err(ASN1Error::new(ASN1ErrorKind::Invalid)),
                 })
             })?;
-            let alg_id = A::decode_ber(reader.next())?;
+            let alg_id = AlgorithmIdentifierOwned::decode_ber(reader.next())?;
             let signature = BitVec::decode_ber(reader.next())?;
             Ok(PopoSigningKey {
                 poposk_input,
@@ -165,5 +165,5 @@ impl<A: SignatureAlgorithm + BERDecodable> BERDecodable for PopoSigningKey<A> {
 /// ```
 ///
 /// [RFC 4211 Section 4.1]: https://www.rfc-editor.org/rfc/rfc4211#section-4.1
-/// TODO: fields not needed now are not implemented yet
-pub type PopoSigningKeyInput = DerSequence<'static>;
+/// TODO: not implemented yet
+pub type PopoSigningKeyInput = DerAnyOwned;
