@@ -37,13 +37,13 @@ pub enum ProofOfPossession {
 }
 
 impl ProofOfPossession {
-    /// IMPLICIT TAG (rfc4211#appendix-B) for RaVerified
+    /// IMPLICIT TAG [RFC4211#appendix-B](https://datatracker.ietf.org/doc/html/rfc4211#appendix-B) for RaVerified
     const TAG_RA_VERIFIED: u64 = 0;
-    /// IMPLICIT TAG (rfc4211#appendix-B) for Signature
+    /// IMPLICIT TAG [RFC4211#appendix-B](https://datatracker.ietf.org/doc/html/rfc4211#appendix-B) for Signature
     const TAG_SIGNATURE: u64 = 1;
-    /// IMPLICIT TAG (rfc4211#appendix-B) for KeyEncipherment
+    /// IMPLICIT TAG [RFC4211#appendix-B](https://datatracker.ietf.org/doc/html/rfc4211#appendix-B) for KeyEncipherment
     const TAG_KEY_ENCIPHERMENT: u64 = 2;
-    /// IMPLICIT TAG (rfc4211#appendix-B) for KeyAgreement
+    /// IMPLICIT TAG [RFC4211#appendix-B](https://datatracker.ietf.org/doc/html/rfc4211#appendix-B) for KeyAgreement
     const TAG_KEY_AGREEMENT: u64 = 3;
 
     fn tag(&self) -> Tag {
@@ -114,7 +114,7 @@ pub struct PopoSigningKey {
 }
 
 impl PopoSigningKey {
-    /// IMPLICIT TAG (rfc4211#appendix-B)
+    /// IMPLICIT TAG [RFC4211#appendix-B](https://datatracker.ietf.org/doc/html/rfc4211#appendix-B) for POPOSigningKeyInput
     const TAG_POPOSK_INPUT: u64 = 0;
 }
 

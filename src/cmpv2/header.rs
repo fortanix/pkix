@@ -57,6 +57,8 @@ derive_sequence! {
     /// ```
     ///
     /// [RFC 4210 Section 5.1.1]: https://datatracker.ietf.org/doc/html/rfc4210#section-5.1.1
+    ///
+    /// Tags are EXPLICIT TAG in default according to [rfc4210#appendix-F](https://datatracker.ietf.org/doc/html/rfc4210#appendix-F).
     PkiHeader<'a> {
         pvno:           [_] UNTAGGED REQUIRED:  Pvno,
         sender:         [_] UNTAGGED REQUIRED:  GeneralName<'a>,

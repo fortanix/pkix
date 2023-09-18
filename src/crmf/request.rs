@@ -99,7 +99,8 @@ derive_sequence! {
     ///
     /// [RFC 4211 Section 5]: https://www.rfc-editor.org/rfc/rfc4211#section-5
     ///
-    /// Note: `issuer` and `subject` are EXPLICIT tagged, because they are type of CHOICE
+    /// Tags are IMPLICIT TAG according to [RFC4211#appendix-B](https://datatracker.ietf.org/doc/html/rfc4211#appendix-B),
+    /// but `issuer` and `subject` are EXPLICIT tagged because they are ASN.1 type of `CHOICE`.
     CertTemplate {
         version:                 [0] IMPLICIT OPTIONAL: Option<Version>,
         serial_number:           [1] IMPLICIT OPTIONAL: Option<SerialNumber>,
