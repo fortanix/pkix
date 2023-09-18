@@ -213,9 +213,9 @@ define_version! {
     ///
     /// [RFC 5280 Section 4.1]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.1
     Version {
-        V1 = 1,
-        V2 = 2,
-        V3 = 3,
+        V1 = 0,
+        V2 = 1,
+        V3 = 2,
     }
 }
 
