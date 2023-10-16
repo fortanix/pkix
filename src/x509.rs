@@ -5,17 +5,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use bitflags::bitflags;
-use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERReader, DERWriter, BERDecodable, Tag};
+use yasna::{ASN1Error, ASN1ErrorKind, ASN1Result, BERReader, DERWriter, BERDecodable, Tag, tags::*};
 use num_integer::Integer;
-use num_bigint::BigUint;
-use std::borrow::Cow;
+use num_bigint::{BigUint, BigInt};
+use std::{borrow::Cow, convert::TryFrom};
 use bit_vec::BitVec;
 use oid;
 
 use DerWrite;
 use types::*;
+use deserialize::FromBer;
 
-use crate::ToDer;
+use crate::{ToDer, oid::{certificatePolicies, ID_QT_CPS, ID_QT_UNOTICE, ANY_POLICY}};
 
 pub type RsaPkcs15TbsCertificate<'a> = TbsCertificate<BigUint, RsaPkcs15<Sha256>, DerSequence<'a>>;
 pub type RsaPkcs15Certificate<'a> = Certificate<RsaPkcs15TbsCertificate<'a>, RsaPkcs15<Sha256>, BitVec>;
@@ -497,6 +498,297 @@ impl IsCritical for SubjectDirectoryAttributes<'_> {
     }
 }
 
+derive_sequence_of! {
+    /// CertificatePolicies as defined in [RFC 5280 Section 4.2.1.4].
+    ///
+    /// ```text
+    /// CertificatePolicies ::= SEQUENCE SIZE (1..MAX) OF PolicyInformation
+    /// ```
+    ///
+    /// [RFC 5280 Section 4.2.1.4]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.4
+    //  If this extension is
+    //  critical, the path validation software MUST be able to interpret this
+    //  extension (including the optional qualifier), or MUST reject the
+    //  certificate.
+    PolicyInformation => CertificatePolicies
+}
+
+impl HasOid for CertificatePolicies {
+    fn oid() -> &'static ObjectIdentifier {
+        &certificatePolicies
+    }
+}
+
+impl CertificatePolicies {
+    pub fn to_extension(&self, is_critical: bool) -> Extension {
+        Extension {
+            oid: Self::oid().clone(),
+            critical: is_critical,
+            value: self.to_der(),
+        }
+    }
+}
+
+/// PolicyInformation as defined in [RFC 5280 Section 4.2.1.4].
+///
+/// ```text
+/// PolicyInformation ::= SEQUENCE {
+///     policyIdentifier   CertPolicyId,
+///     policyQualifiers   SEQUENCE SIZE (1..MAX) OF PolicyQualifierInfo OPTIONAL
+/// }
+///
+/// CertPolicyId ::= OBJECT IDENTIFIER
+/// ```
+///
+/// [RFC 5280 Section 4.2.1.4]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.4
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct PolicyInformation {
+    pub policy_identifier: CertPolicyId,
+    pub policy_qualifiers: Option<Vec<PolicyQualifierInfo>>,
+}
+
+pub type CertPolicyId = ObjectIdentifier;
+
+impl BERDecodable for PolicyInformation {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        reader.read_sequence(|policy_info_r| {
+            let policy_identifier = CertPolicyId::decode_ber(policy_info_r.next())?;
+            let policy_qualifiers = policy_info_r
+                .read_optional(|qualifiers_r| qualifiers_r.collect_sequence_of(PolicyQualifierInfo::decode_ber))?;
+            Ok(Self {
+                policy_identifier,
+                policy_qualifiers,
+            })
+        })
+    }
+}
+
+impl DerWrite for PolicyInformation {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|policy_info_w| {
+            self.policy_identifier.write(policy_info_w.next());
+            if let Some(ref qualifiers) = self.policy_qualifiers {
+                policy_info_w.next().write_sequence_of(|qualifiers_w| {
+                    for qual in qualifiers {
+                        qual.write(qualifiers_w.next());
+                    }
+                })
+            }
+        })
+    }
+}
+
+derive_sequence! {
+    /// PolicyQualifierInfo as defined in [RFC 5280 Section 4.2.1.4].
+    ///
+    /// ```text
+    /// PolicyQualifierInfo ::= SEQUENCE {
+    ///     policyQualifierId  PolicyQualifierId,
+    ///     qualifier          ANY DEFINED BY policyQualifierId
+    /// }
+    /// ```
+    ///
+    /// [RFC 5280 Section 4.2.1.4]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.4
+    PolicyQualifierInfo {
+        policyQualifierId: [_] UNTAGGED REQUIRED:  ObjectIdentifier,
+        qualifier:         [_] UNTAGGED OPTIONAL:  Option<DerAnyOwned>,
+    }
+}
+
+impl From<InternetPolicyQualifier> for PolicyQualifierInfo {
+    fn from(value: InternetPolicyQualifier) -> Self {
+        let oid: &ObjectIdentifier = value.oid();
+        match value {
+            InternetPolicyQualifier::CpsUri(cps_uri) => Self {
+                policyQualifierId: oid.clone(),
+                qualifier: Some(cps_uri.to_der().into()),
+            },
+            InternetPolicyQualifier::UserNotice(user_notice) => Self {
+                policyQualifierId: oid.clone(),
+                qualifier: Some(user_notice.to_der().into()),
+            },
+        }
+    }
+}
+
+/// Qualifier as defined in [RFC 5280 Section 4.2.1.4].
+/// ```text
+/// -- policyQualifierIds for Internet policy qualifiers
+///
+/// id-qt          OBJECT IDENTIFIER ::=  { id-pkix 2 }
+/// id-qt-cps      OBJECT IDENTIFIER ::=  { id-qt 1 }
+/// id-qt-unotice  OBJECT IDENTIFIER ::=  { id-qt 2 }
+///
+/// PolicyQualifierId ::= OBJECT IDENTIFIER ( id-qt-cps | id-qt-unotice )
+///
+/// Qualifier ::= CHOICE {
+///      cPSuri           CPSuri,
+///      userNotice       UserNotice }
+/// ```
+///
+/// [RFC 5280 Section 4.2.1.4]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.4
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum InternetPolicyQualifier {
+    CpsUri(CpsUri),
+    UserNotice(UserNotice),
+}
+
+impl BERDecodable for InternetPolicyQualifier {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        match reader.lookahead_tag()? {
+            TAG_IA5STRING => Ok(Self::CpsUri(CpsUri::decode_ber(reader)?)),
+            TAG_SEQUENCE => Ok(Self::UserNotice(UserNotice::decode_ber(reader)?)),
+            _ => Err(ASN1Error::new(ASN1ErrorKind::Invalid)),
+        }
+    }
+}
+
+impl DerWrite for InternetPolicyQualifier {
+    fn write(&self, writer: DERWriter) {
+        match self {
+            InternetPolicyQualifier::CpsUri(cps_uri) => cps_uri.write(writer),
+            InternetPolicyQualifier::UserNotice(user_notice) => user_notice.write(writer),
+        }
+    }
+}
+
+impl InternetPolicyQualifier {
+    pub fn oid(&self) -> &'static ObjectIdentifier {
+        match self {
+            InternetPolicyQualifier::CpsUri(_) => &ID_QT_CPS,
+            InternetPolicyQualifier::UserNotice(_) => &ID_QT_UNOTICE,
+        }
+    }
+}
+
+impl TryFrom<PolicyQualifierInfo> for InternetPolicyQualifier {
+    type Error = ASN1Error;
+
+    fn try_from(value: PolicyQualifierInfo) -> Result<Self, Self::Error> {
+        if value.policyQualifierId == *ID_QT_CPS
+            || value.policyQualifierId == *ID_QT_UNOTICE
+            || value.policyQualifierId == *ANY_POLICY
+        {
+            Ok(Self::from_ber(&value.qualifier.ok_or(ASN1Error::new(ASN1ErrorKind::Eof))?)?)
+        } else {
+            Err(ASN1Error::new(ASN1ErrorKind::Invalid))
+        }
+    }
+}
+
+/// CpsUri as defined in [RFC 5280 Section 4.2.1.4].
+///
+/// ```text
+/// CPSuri ::= IA5String
+/// ```
+///
+/// [RFC 5280 Section 4.2.1.4]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.4
+pub type CpsUri = Ia5String;
+
+derive_sequence! {
+    /// UserNotice as defined in [RFC 5280 Section 4.2.1.4].
+    ///
+    /// ```text
+    /// UserNotice ::= SEQUENCE {
+    ///     noticeRef        NoticeReference OPTIONAL,
+    ///     explicitText     DisplayText OPTIONAL
+    /// }
+    /// ```
+    ///
+    /// [RFC 5280 Section 4.2.1.4]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.4
+    UserNotice {
+        notice_ref:    [_] UNTAGGED OPTIONAL:  Option<NoticeReference>,
+        explicit_text: [_] UNTAGGED OPTIONAL:  Option<DisplayText>,
+    }
+}
+
+/// NoticeReference as defined in [RFC 5280 Section 4.2.1.4].
+///
+/// ```text
+/// NoticeReference ::= SEQUENCE {
+///      organization     DisplayText,
+///      noticeNumbers    SEQUENCE OF INTEGER }
+/// ```
+///
+/// [RFC 5280 Section 4.2.1.4]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.4
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct NoticeReference {
+    pub organization: DisplayText,
+    pub notice_numbers: Vec<BigInt>,
+}
+
+impl BERDecodable for NoticeReference {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        reader.read_sequence(|notice_ref_r| {
+            let organization = DisplayText::decode_ber(notice_ref_r.next())?;
+            let notice_numbers = notice_ref_r.next().collect_sequence_of(BigInt::decode_ber)?;
+            Ok(Self {
+                organization,
+                notice_numbers,
+            })
+        })
+    }
+}
+
+impl DerWrite for NoticeReference {
+    fn write(&self, writer: DERWriter) {
+        writer.write_sequence(|notice_ref_w| {
+            self.organization.write(notice_ref_w.next());
+            notice_ref_w.next().write_sequence_of(|notice_num_w| {
+                for number in &self.notice_numbers {
+                    number.write(notice_num_w.next());
+                }
+            })
+        })
+    }
+}
+
+/// DisplayText as defined in [RFC 5280 Section 4.2.1.4].
+///
+/// ```text
+/// DisplayText ::= CHOICE {
+///     ia5String        IA5String      (SIZE (1..200)),
+///     visibleString    VisibleString  (SIZE (1..200)),
+///     bmpString        BMPString      (SIZE (1..200)),
+///     utf8String       UTF8String     (SIZE (1..200))
+/// }
+/// ```
+///
+/// Only the ia5String and utf8String options are currently supported.
+///
+/// [RFC 5280 Section 4.2.1.4]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.4
+// TODO: add size validation
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum DisplayText {
+    Ia5String(Ia5String),
+    VisibleString(String),
+    BmpString(String),
+    Utf8String(String),
+}
+
+impl BERDecodable for DisplayText {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        match reader.lookahead_tag()? {
+            TAG_IA5STRING => Ok(Self::Ia5String(Ia5String::decode_ber(reader)?)),
+            TAG_VISIBLESTRING => Ok(Self::VisibleString(reader.read_visible_string()?)),
+            TAG_BMPSTRING => Ok(Self::BmpString(reader.read_bmp_string()?)),
+            TAG_UTF8STRING => Ok(Self::Utf8String(reader.read_utf8string()?)),
+            _ => Err(ASN1Error::new(ASN1ErrorKind::Invalid)),
+        }
+    }
+}
+
+impl DerWrite for DisplayText {
+    fn write(&self, writer: DERWriter) {
+        match self {
+            DisplayText::Ia5String(s) => s.write(writer),
+            DisplayText::VisibleString(s) => writer.write_visible_string(s),
+            DisplayText::BmpString(s) => writer.write_bmp_string(s),
+            DisplayText::Utf8String(s) => writer.write_utf8_string(s),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -578,10 +870,12 @@ mod tests {
 
 #[cfg(test)]
 mod key_usage_tests {
-    use crate::oid::attributeTypeRole;
+    use std::convert::TryInto;
+
+    use crate::oid::{attributeTypeRole, ANY_POLICY};
     use crate::rfc3281::Role;
     use crate::yasna::tags::TAG_BITSTRING;
-    use crate::{FromDer, ToDer};
+    use crate::{FromDer, ToDer, FromBer};
 
     use super::*;
 
@@ -714,5 +1008,114 @@ mod key_usage_tests {
         println!("{}", der.to_base64(STANDARD));
         let example_decode = SubjectDirectoryAttributes::from_der(&der).expect("from der");
         assert_eq!(example_decode, example);
+    }
+
+    /// A simple smoke test to ensure that we can encode CertificatePolicies
+    /// struct mentioning the Fortanix Service and Key Attestation Certificate
+    /// Policies, and decode the DER value to get back the same struct.
+    #[test]
+    fn encode_fortanix_policies_smoke_test() {
+        for policy_identifier in [
+            vec![1, 3, 6, 1, 4, 1, 49690, 6, 1, 3].into(),
+            vec![1, 3, 6, 1, 4, 1, 49690, 6, 1, 2].into(),
+        ] {
+            let policies = CertificatePolicies(vec![PolicyInformation {
+                policy_identifier,
+                policy_qualifiers: None,
+            }]);
+            let der = policies.to_der();
+            let decoded = CertificatePolicies::from_ber(&der).expect("DER should be valid");
+            assert_eq!(policies, decoded);
+        }
+    }
+
+    /// A simple smoke test to ensure that we can encode an anyPolicy policy with
+    /// a policy qualifier, and decode the DER value to get back the same struct.
+    #[test]
+    fn encode_any_policy_smoke_test() {
+        for internet_policy_qualifier in [
+            InternetPolicyQualifier::CpsUri("https://example.com".to_string().into()), // not real
+            InternetPolicyQualifier::UserNotice(UserNotice {
+                notice_ref: Some(NoticeReference {
+                    organization: DisplayText::Utf8String("Fake Corp".to_string()),
+                    notice_numbers: vec![BigInt::from(1)],
+                }),
+                explicit_text: Some(DisplayText::Utf8String("Fake policy".to_string())),
+            }),
+        ] {
+            let policy = PolicyInformation {
+                policy_identifier: ANY_POLICY.clone(),
+                policy_qualifiers: Some(vec![internet_policy_qualifier.clone().into()]),
+            };
+            let der = policy.to_der();
+            let decoded = PolicyInformation::from_ber(&der).expect("DER should be valid");
+            assert_eq!(policy, decoded);
+            let decoded_internet_policy_qualifier: InternetPolicyQualifier = decoded
+                .policy_qualifiers
+                .unwrap()
+                .first()
+                .unwrap()
+                .to_owned()
+                .try_into()
+                .unwrap();
+            assert_eq!(internet_policy_qualifier, decoded_internet_policy_qualifier);
+        }
+    }
+
+    #[test]
+    fn encode_internet_policy_qualifiers_smoke_test() {
+        for internet_policy_qualifier in [
+            InternetPolicyQualifier::CpsUri("https://example.com".to_string().into()), // not real
+            InternetPolicyQualifier::UserNotice(UserNotice {
+                notice_ref: Some(NoticeReference {
+                    organization: DisplayText::Utf8String("Fake Corp".to_string()),
+                    notice_numbers: vec![BigInt::from(1)],
+                }),
+                explicit_text: Some(DisplayText::Utf8String("Fake policy".to_string())),
+            }),
+        ] {
+            let policy = PolicyInformation {
+                policy_identifier: internet_policy_qualifier.oid().clone(),
+                policy_qualifiers: Some(vec![internet_policy_qualifier.clone().into()]),
+            };
+            let der = policy.to_der();
+            let decoded = PolicyInformation::from_ber(&der).expect("DER should be valid");
+            assert_eq!(policy, decoded);
+            let decoded_internet_policy_qualifier: InternetPolicyQualifier = decoded
+                .policy_qualifiers
+                .unwrap()
+                .first()
+                .unwrap()
+                .to_owned()
+                .try_into()
+                .unwrap();
+            assert_eq!(internet_policy_qualifier, decoded_internet_policy_qualifier);
+        }
+    }
+
+    /// Example [CertificatePolicies] extension extract from a `Fortanix DSM SaaS Key Attestation Authority` certificate:
+    /// ```text
+    /// Extension SEQUENCE (2 elem)
+    /// extnID OBJECT IDENTIFIER 2.5.29.32 certificatePolicies (X.509 extension)
+    /// extnValue OCTET STRING (17 byte) 300F300D060B2B0601040183841A060102
+    ///   SEQUENCE (1 elem)
+    ///     SEQUENCE (1 elem)
+    ///       OBJECT IDENTIFIER 1.3.6.1.4.1.49690.6.1.2
+    /// ```
+    static EXAMPLE_CLUSTER_NODE_ENROLLMENT_POLICY_EXT: &[u8] = &[
+        0x30, 0x18, 0x06, 0x03, 0x55, 0x1D, 0x20, 0x04, 0x11, 0x30, 0x0F, 0x30, 0x0D, 0x06, 0x0B, 0x2B, 0x06, 0x01, 0x04, 0x01,
+        0x83, 0x84, 0x1A, 0x06, 0x01, 0x02,
+    ];
+
+    #[test]
+    fn decode_fortanix_policies_ext_test() {
+        let ext = Extension::from_ber(EXAMPLE_CLUSTER_NODE_ENROLLMENT_POLICY_EXT).unwrap();
+        let policies = CertificatePolicies::from_ber(&ext.value).expect("extension value should be valid");
+        let expected_polices = CertificatePolicies(vec![PolicyInformation {
+            policy_identifier: vec![1, 3, 6, 1, 4, 1, 49690, 6, 1, 2].into(),
+            policy_qualifiers: None,
+        }]);
+        assert_eq!(expected_polices, policies);
+        assert_eq!(ext, expected_polices.to_extension(false));
     }
 }

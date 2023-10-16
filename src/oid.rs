@@ -37,6 +37,22 @@ lazy_static! {
     pub static ref authorityKeyIdentifier: ObjectIdentifier = vec![2, 5, 29, 35].into();
     pub static ref keyUsage: ObjectIdentifier = vec![2, 5, 29, 15].into();
     pub static ref subjectDirectoryAttributes: ObjectIdentifier = vec![2, 5, 29, 9].into();
+    /// The certificatePolicies extension, as defined in [RFC 5280 Section 4.2.1.4].
+    ///
+    /// [RFC 5280 Section 4.2.1.4]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.4
+    pub static ref certificatePolicies: ObjectIdentifier        = vec![2, 5, 29, 32].into();
+    /// The special policy identifier anyPolicy, as per [RFC 5280 Section 4.2.1.4].
+    ///
+    /// [RFC 5280 Section 4.2.1.4]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.4
+    pub static ref ANY_POLICY: ObjectIdentifier = vec![2, 5, 29, 32, 0].into();
+    /// The ID for the CPS Pointer policy qualifier, as per [RFC 5280 Section 4.2.1.4].
+    ///
+    /// [RFC 5280 Section 4.2.1.4]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.4
+    pub static ref ID_QT_CPS: ObjectIdentifier =     vec![1, 3, 6, 1, 5, 5, 7, 2, 1].into();
+    /// The ID for the user notice policy qualifier, as per [RFC 5280 Section 4.2.1.4].
+    ///
+    /// [RFC 5280 Section 4.2.1.4]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.4
+    pub static ref ID_QT_UNOTICE: ObjectIdentifier = vec![1, 3, 6, 1, 5, 5, 7, 2, 2].into();
 
     // PKCS #9 attributes
     pub static ref extensionRequest: ObjectIdentifier = vec![1, 2, 840, 113549, 1, 9, 14].into();

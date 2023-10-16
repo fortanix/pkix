@@ -892,6 +892,38 @@ impl AsRef<[u8]> for OctetString {
     }
 }
 
+/// ASN.1 `IA5String` type.
+///
+/// Supports the [International Alphabet No. 5 (IA5)] character encoding, i.e.
+/// the lower 128 characters of the ASCII alphabet. (Note: IA5 is now
+/// technically known as the International Reference Alphabet or IRA as
+/// specified in the ITU-T's T.50 recommendation).
+///
+/// For UTF-8, use [`String`][`alloc::string::String`].
+///
+/// [International Alphabet No. 5 (IA5)]: https://en.wikipedia.org/wiki/T.50_%28standard%29
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct Ia5String(pub String);
+
+impl BERDecodable for Ia5String {
+    fn decode_ber(reader: BERReader) -> ASN1Result<Self> {
+        Ok(Ia5String(reader.read_ia5_string()?))
+    }
+}
+
+impl DerWrite for Ia5String {
+    fn write(&self, writer: DERWriter) {
+        writer.write_ia5_string_safe(&self.0)
+    }
+}
+
+impl From<String> for Ia5String {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+
 derive_sequence!{
     /// X.509 `AlgorithmIdentifier` as defined in [RFC 5280 Section 4.1.1.2].
     ///
