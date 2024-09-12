@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+    paths-ignore:
+      - '*.md'
+      - 'LICENSE'
+    branches:
+      - master
+  # This CI will be triggered on any merge_group events
+  merge_group:
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+
+jobs:
+  test:
+    name: Build+Test
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Rust toolchain
+      run: |
+        rustup target add x86_64-fortanix-unknown-sgx
+        rustup toolchain add nightly
+        rustup target add x86_64-fortanix-unknown-sgx --toolchain nightly
+        rustup update
+
+    - name: Cargo test (Linux)
+      run: cargo test --verbose --all --locked
+
+    - name: Cargo test (SGX, no-run)
+      run: cargo test --target x86_64-fortanix-unknown-sgx --verbose --all --locked --no-run
