@@ -10,17 +10,20 @@ repository = "https://github.com/fortanix/pkix"
 exclude = [".gitignore", ".travis.yml", "bors.toml", "CODE_OF_CONDUCT.md"]
 
 [dependencies]
-yasna = { version = "0.3", features = ["num-bigint", "bit-vec"] }
-num-bigint = { version = "0.2", default-features = false }
+yasna = { version = "0.5", features = ["num-bigint", "bit-vec"] }
+num-bigint = { version = "0.4", default-features = false }
 num-integer = { version = "0.1", default-features = false }
 bit-vec = "0.6"
-lazy_static = "1"
-chrono = "0.4.23"
-b64-ct = "0.1.1"
-bitflags = "1.3.2"
+lazy_static = "1.5"
+chrono = "0.4.38"
+b64-ct = "0.1.2"
+bitflags = "2.6"
 
 [dev-dependencies]
 rand = "0.3"
 
 [package.metadata.release]
 tag-prefix = "pkix_"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(dont_compile, values("dont_compile"))'] }
