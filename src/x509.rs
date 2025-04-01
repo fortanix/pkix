@@ -789,6 +789,41 @@ impl DerWrite for DisplayText {
     }
 }
 
+derive_sequence_of! {
+    /// ExtKeyUsageSyntax as defined in [RFC 5280 Section 4.2.1.12].
+    ///
+    /// ```text
+    /// ExtKeyUsageSyntax ::= SEQUENCE SIZE (1..MAX) OF KeyPurposeId
+    ///
+    /// KeyPurposeId ::= OBJECT IDENTIFIER
+    /// ```
+    ///
+    /// [RFC 5280 Section 4.2.1.12]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.12
+    //  If this extension is
+    //  critical, the path validation software MUST be able to interpret this
+    //  extension (including the optional qualifier), or MUST reject the
+    //  certificate.
+    KeyPurposeId => ExtKeyUsageSyntax
+}
+
+pub type KeyPurposeId = ObjectIdentifier;
+
+impl HasOid for ExtKeyUsageSyntax {
+    fn oid() -> &'static ObjectIdentifier {
+        &oid::extKeyUsage
+    }
+}
+
+impl ExtKeyUsageSyntax {
+    pub fn to_extension(&self, is_critical: bool) -> Extension {
+        Extension {
+            oid: Self::oid().clone(),
+            critical: is_critical,
+            value: self.to_der(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -868,11 +903,16 @@ mod tests {
 }
 
 
+/// Test cases for certificate extensions, such as Key Usage, Subject Directory
+/// Attributes, and more.
 #[cfg(test)]
-mod key_usage_tests {
+mod certificate_extension_tests {
     use std::convert::TryInto;
 
-    use crate::oid::{attributeTypeRole, ANY_POLICY};
+    use crate::oid::{
+        attributeTypeRole, ANY_POLICY, ANY_EXTENDED_KEY_USAGE, ID_KP_CLIENT_AUTH, ID_KP_CODE_SIGNING, ID_KP_EMAIL_PROTECTION,
+        ID_KP_OCSP_SIGNING, ID_KP_SERVER_AUTH, ID_KP_TIME_STAMPING
+    };
     use crate::rfc3281::Role;
     use crate::yasna::tags::TAG_BITSTRING;
     use crate::{FromDer, ToDer, FromBer};
@@ -1117,5 +1157,26 @@ mod key_usage_tests {
         }]);
         assert_eq!(expected_polices, policies);
         assert_eq!(ext, expected_polices.to_extension(false));
+    }
+
+    /// A smoke test to check round-trip serialization and deserialization of
+    /// the Extended Key Usage extension.
+    #[test]
+    fn extended_key_usage_encode_decode_round_trip_smoke_test() {
+        for eku_purposes in [
+            vec![ANY_EXTENDED_KEY_USAGE.clone()],
+            vec![ID_KP_CLIENT_AUTH.clone(), ID_KP_SERVER_AUTH.clone()],
+            vec![ID_KP_CODE_SIGNING.clone()],
+            vec![ID_KP_EMAIL_PROTECTION.clone()],
+            vec![ID_KP_OCSP_SIGNING.clone(), ID_KP_TIME_STAMPING.clone()],
+            // Custom extended key usage purpose used for Fortanix key attestation:
+            // id-kp-fortanix-key-attestation
+            vec![vec![1, 3, 6, 1, 4, 1, 49690, 8, 1].into()]
+        ] {
+            let eku = ExtKeyUsageSyntax(eku_purposes);
+            let eku_der = eku.to_der();
+            let decoded_eku = ExtKeyUsageSyntax::from_ber(&eku_der).expect("DER-encoded EKU extension should be valid");
+            assert_eq!(decoded_eku, eku);
+        }
     }
 }
