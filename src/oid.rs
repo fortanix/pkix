@@ -54,6 +54,39 @@ lazy_static! {
     /// [RFC 5280 Section 4.2.1.4]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.4
     pub static ref ID_QT_UNOTICE: ObjectIdentifier = vec![1, 3, 6, 1, 5, 5, 7, 2, 2].into();
 
+    /// The Extended Key Usage extension, as defined in [RFC 5280 Section 4.2.1.12].
+    ///
+    /// [RFC 5280 Section 4.2.1.12]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.12
+    pub static ref extKeyUsage: ObjectIdentifier = vec![2, 5, 29, 37].into();
+    /// The special extended key usage purpose anyExtendedKeyUsage, as defined in [RFC 5280 Section 4.2.1.12].
+    ///
+    /// [RFC 5280 Section 4.2.1.12]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.12
+    pub static ref ANY_EXTENDED_KEY_USAGE: ObjectIdentifier =  vec![2, 5, 29, 37, 0].into();
+    /// The serverAuth extended key usage purpose, as defined in [RFC 5280 Section 4.2.1.12].
+    ///
+    /// [RFC 5280 Section 4.2.1.12]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.12
+    pub static ref ID_KP_SERVER_AUTH: ObjectIdentifier = vec![1, 3, 6, 1, 5, 5, 7, 3, 1].into();
+    /// The clientAuth extended key usage purpose, as defined in [RFC 5280 Section 4.2.1.12].
+    ///
+    /// [RFC 5280 Section 4.2.1.12]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.12
+    pub static ref ID_KP_CLIENT_AUTH: ObjectIdentifier = vec![1, 3, 6, 1, 5, 5, 7, 3, 2].into();
+    /// The codeSigning extended key usage purpose, as defined in [RFC 5280 Section 4.2.1.12].
+    ///
+    /// [RFC 5280 Section 4.2.1.12]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.12
+    pub static ref ID_KP_CODE_SIGNING: ObjectIdentifier = vec![1, 3, 6, 1, 5, 5, 7, 3, 3].into();
+    /// The emailProtection extended key usage purpose, as defined in [RFC 5280 Section 4.2.1.12].
+    ///
+    /// [RFC 5280 Section 4.2.1.12]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.12
+    pub static ref ID_KP_EMAIL_PROTECTION: ObjectIdentifier = vec![1, 3, 6, 1, 5, 5, 7, 3, 4].into();
+    /// The timeStamping extended key usage purpose, as defined in [RFC 5280 Section 4.2.1.12].
+    ///
+    /// [RFC 5280 Section 4.2.1.12]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.12
+    pub static ref ID_KP_TIME_STAMPING: ObjectIdentifier = vec![1, 3, 6, 1, 5, 5, 7, 3, 8].into();
+    /// The OCSPSigning extended key usage purpose, as defined in [RFC 5280 Section 4.2.1.12].
+    ///
+    /// [RFC 5280 Section 4.2.1.12]: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.12
+    pub static ref ID_KP_OCSP_SIGNING: ObjectIdentifier = vec![1, 3, 6, 1, 5, 5, 7, 3, 9].into();
+
     // PKCS #9 attributes
     pub static ref extensionRequest: ObjectIdentifier = vec![1, 2, 840, 113549, 1, 9, 14].into();
 

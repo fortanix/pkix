@@ -8,7 +8,7 @@ extern crate pkix;
 
 use pkix::pem::pem_to_der;
 use pkix::types::ObjectIdentifier;
-use pkix::x509::{CertificatePolicies, GenericCertificate, KeyUsage};
+use pkix::x509::{CertificatePolicies, ExtKeyUsageSyntax, GenericCertificate, KeyUsage};
 use pkix::FromBer;
 
 /// Leaf certificate of usa.gov, last taken on 2 October 2023.
@@ -54,30 +54,40 @@ lazy_static::lazy_static! {
 /// - Key Usage contains digitalSignature and keyEncipherment
 /// - Certificate policies contain a single policy with OID 2.23.140.1.2.1
 ///   (CA/Browser Forum domain-validated)
+/// - Extended Key Usage contains TLS server auth and client auth
 /// (I manually verified these properties by viewing the certificate
-/// details in Firefox)
+/// details in OpenSSL)
 #[test]
 fn validate_usa_gov_cert() {
     let der_cert = pem_to_der(USA_GOV_CERT, None).expect("USA cert should be valid");
     let cert = GenericCertificate::from_ber(&der_cert).expect("USA cert should be valid");
 
     // Check that Key Usage is good
-    let ext = cert
+    let key_usage_ext = cert
         .tbscert
         .get_extension(&pkix::oid::keyUsage)
         .expect("key usage should be present");
-    let key_usage = KeyUsage::from_ber(&ext.value).expect("key usage extension should be valid");
+    let key_usage = KeyUsage::from_ber(&key_usage_ext.value).expect("key usage extension should be valid");
     assert!(key_usage.contains(KeyUsage::DIGITAL_SIGNATURE));
     assert!(key_usage.contains(KeyUsage::KEY_ENCIPHERMENT));
 
     // Check certificate policies
-    let ext = cert
+    let policies_ext = cert
         .tbscert
         .get_extension(&pkix::oid::certificatePolicies)
         .expect("certificate policies should be present");
-    let mut policies = CertificatePolicies::from_ber(&ext.value).expect("certificate policies should be valid");
+    let mut policies = CertificatePolicies::from_ber(&policies_ext.value).expect("certificate policies should be valid");
     assert!(policies.0.len() == 1);
     let policy = policies.0.pop().expect("should be at least one policy");
     assert!(policy.policy_qualifiers.is_none());
     assert_eq!(policy.policy_identifier, *DOMAIN_VALIDATED);
+
+    // Check extended key usage
+    let eku_ext = cert
+        .tbscert
+        .get_extension(&pkix::oid::extKeyUsage)
+        .expect("extended key usage should be present");
+    let eku = ExtKeyUsageSyntax::from_ber(&eku_ext.value).expect("EKU extension should be valid");
+    assert!(eku.0.contains(&pkix::oid::ID_KP_CLIENT_AUTH));
+    assert!(eku.0.contains(&pkix::oid::ID_KP_SERVER_AUTH));
 }
