@@ -58,6 +58,7 @@ impl BERDecodable for RsaPkcs15<Sha256> {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct EcdsaX962<H>(pub H);
 
 impl<H> SignatureAlgorithm for EcdsaX962<H> {}
