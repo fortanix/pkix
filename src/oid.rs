@@ -145,13 +145,24 @@ lazy_static! {
     pub static ref KcdsaSha224: ObjectIdentifier = vec![1, 2, 410, 200004, 1, 40].into();
     pub static ref KcdsaSha256: ObjectIdentifier = vec![1, 2, 410, 200004, 1, 27].into();
     pub static ref EcKcdsa:     ObjectIdentifier = vec![1, 0, 14888, 3, 0, 5].into();
+
+    // Module-Lattice-Based Digital Signature Algorithm (ML-DSA)
+    /// `id-ml-dsa-44` defined in [RFC9881](https://datatracker.ietf.org/doc/html/rfc9881#name-identifiers)
+    pub static ref MlDsa44:     ObjectIdentifier = vec![2, 16, 840, 1, 101, 3, 4, 3, 17].into();
+    /// `id-ml-dsa-65` defined in [RFC9881](https://datatracker.ietf.org/doc/html/rfc9881#name-identifiers)
+    pub static ref MlDsa65:     ObjectIdentifier = vec![2, 16, 840, 1, 101, 3, 4, 3, 18].into();
+    /// `id-ml-dsa-87` defined in [RFC9881](https://datatracker.ietf.org/doc/html/rfc9881#name-identifiers)
+    pub static ref MlDsa87:     ObjectIdentifier = vec![2, 16, 840, 1, 101, 3, 4, 3, 19].into();
+
 }
 
 lazy_static! {
     pub static ref NAME_TO_OID: &'static HashMap<&'static str, ObjectIdentifier> = &MAPPING.1;
     pub static ref OID_TO_NAME: &'static HashMap<ObjectIdentifier, &'static str> = &MAPPING.0;
-
-    static ref MAPPING: (HashMap<ObjectIdentifier, &'static str>, HashMap<&'static str, ObjectIdentifier>) = {
+    static ref MAPPING: (
+        HashMap<ObjectIdentifier, &'static str>,
+        HashMap<&'static str, ObjectIdentifier>
+    ) = {
         let mut name_to_oid = HashMap::new();
         let mut oid_to_name = HashMap::new();
 

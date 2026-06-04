@@ -1,6 +1,6 @@
 [package]
 name = "pkix"
-version = "0.2.5"
+version = "0.2.6"
 authors = ["Fortanix Inc."]
 license = "MPL-2.0"
 description = "TLS Certificate encoding and decoding helpers."
