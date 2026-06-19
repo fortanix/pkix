@@ -21,6 +21,7 @@ bitflags = "1.3.2"
 
 [dev-dependencies]
 rand = "0.3"
+mbedtls = { version = "0.13", features = ["rdrand"] }
 
 [package.metadata.release]
 tag-prefix = "pkix_"
